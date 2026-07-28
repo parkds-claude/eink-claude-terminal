@@ -1,0 +1,13 @@
+# 비밀정보
+.env
+*.secret
+secrets/
+
+# 빌드 산출물 (Phase 1부터)
+.pio/
+build/
+*.bin
+
+# macOS
+.DS_Store
+._*
