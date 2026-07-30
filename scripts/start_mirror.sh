@@ -8,9 +8,9 @@ set -euo pipefail
 
 X4_IP="${1:-192.168.0.5}"
 SESSION="x4-terminal"
-COLS=66
-ROWS=29
-BRIDGE="$HOME/xteink-terminal/mac-bridge/x4_tmux_bridge.py"
+COLS=100   # D2Coding 16px 기준 (bridge가 실측 후 다시 resize)
+ROWS=26
+BRIDGE="$HOME/eink-claude-terminal/bridge/x4_bitmap_bridge.py"
 LOG="$HOME/eink-claude-terminal/bridge.log"
 PIDFILE="$HOME/eink-claude-terminal/bridge.pid"
 
@@ -33,7 +33,7 @@ if [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
 fi
 TOKEN=$(cat "$HOME/eink-claude-terminal/.x4-token" 2>/dev/null || echo "")
 nohup python3 "$BRIDGE" --x4 "http://$X4_IP" --target "$SESSION:" \
-  --cols "$COLS" --rows "$ROWS" --interval 0.25 --token "$TOKEN" >>"$LOG" 2>&1 &
+  --interval 0.3 --token "$TOKEN" >>"$LOG" 2>&1 &
 echo $! > "$PIDFILE"
 echo "브리지 기동: PID $(cat "$PIDFILE") → http://$X4_IP (로그: $LOG)"
 echo "타이핑: 아무 터미널에서 'tmux attach -t $SESSION'"
