@@ -15,6 +15,13 @@ BRIDGE="$HOME/eink-claude-terminal/bridge/x4_bitmap_bridge.py"
 LOG="$HOME/eink-claude-terminal/bridge.log"
 PIDFILE="$HOME/eink-claude-terminal/bridge.pid"
 
+# 0) launchd 에이전트가 관리 중이면 재기동 위임 (이중 실행 방지)
+if launchctl print "gui/$(id -u)/com.x4mirror.bridge" >/dev/null 2>&1; then
+  launchctl kickstart -k "gui/$(id -u)/com.x4mirror.bridge"
+  echo "launchd 에이전트(com.x4mirror.bridge) 재기동으로 위임했습니다."
+  exit 0
+fi
+
 # 1) X4 응답 확인
 if ! curl -s -m 3 "http://$X4_IP/status" | grep -q '"ok":true'; then
   echo "ERROR: X4($X4_IP) /status 응답 없음" >&2
