@@ -38,8 +38,8 @@
 
 ## Phase 1 — X4 터미널 미러 (집 전용, 목표: 반나절)
 
-1. ☐ X4 현재 펌웨어(SUMI 한글판) 전체 백업 1부 추가 확보
-2. ☐ xteink-terminal 클론 → PlatformIO 빌드 (X4 = `esp32-c3-devkitm-1`, 16MB)
+1. ☐ X4 현재 펌웨어(SUMI 한글판) 전체 백업 1부 추가 확보 — **⚠ 필수 격상: 구 백업 bin이 이 맥미니에 없음(sha256만 이관, 원본은 구 기기). 플래시 전 재덤프 없이는 원복 불가** (2026-07-30 발견)
+2. ☑ xteink-terminal 클론 → PlatformIO 빌드 (X4 = `esp32-c3-devkitm-1`, 16MB) — 2026-07-30 빌드 성공 (RAM 27%, Flash 66%)
 3. ☐ X4 플래시 (BOOT 홀드 + USB, `esptool write-flash 0x0`) → Wi-Fi 설정
 4. ☐ 맥미니: tmux 세션에 Claude Code 상시 실행 + Python 브리지(`tmux capture-pane` → POST /frame) 가동
 5. ☐ Magic Keyboard(또는 성공 이력 키보드)를 **맥미니에 페어링** → 실사용 테스트
