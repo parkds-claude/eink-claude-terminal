@@ -32,7 +32,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--font", default=None, help="TTF path (default: bundled D2Coding)")
     parser.add_argument("--font-size", type=int, default=16, help="font pixel size (16=100x26, 20=80x21)")
     parser.add_argument("--interval", type=float, default=0.3, help="poll seconds")
-    parser.add_argument("--post-timeout", type=float, default=5.0)
+    parser.add_argument("--post-timeout", type=float, default=12.0,
+                        help="전체갱신(1.7s)+디코드보다 길게 — 중복 연결로 인한 힙 압박 방지")
     parser.add_argument("--token", default="", help="X-Auth shared secret")
     parser.add_argument("--full-every", type=float, default=300.0,
                         help="잔상 방지용 전체갱신 최소 주기(초), 0=비활성")
@@ -97,7 +98,11 @@ def run_tmux(args: list[str]) -> str:
 
 
 def capture(target: str, cols: int, rows: int) -> list[str]:
-    subprocess.run(["tmux", "resize-pane", "-t", target, "-x", str(cols), "-y", str(rows)],
+    # window-size manual + resize-window: 큰 화면의 클라이언트가 attach해도
+    # 세션 크기는 X4 셀 수로 고정 (클라이언트 쪽에는 여백으로 표시됨)
+    subprocess.run(["tmux", "set-option", "-t", target, "window-size", "manual"],
+                   check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(["tmux", "resize-window", "-t", target, "-x", str(cols), "-y", str(rows)],
                    check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     output = run_tmux(["capture-pane", "-p", "-t", target, "-S", f"-{rows}", "-E", "-"])
     wrapped: list[str] = []
@@ -194,7 +199,7 @@ def main() -> int:
         want_full = prev is None or (
             args.full_every > 0 and time.monotonic() - last_full > args.full_every)
         bands = dirty_bands(None if want_full else prev, cur)
-        MAX_H = 240  # ESP32 힙 보호: 밴드당 최대 240행(base64 40KB)
+        MAX_H = 120  # ESP32 힙 보호: 밴드당 최대 120행(base64 20KB) — 크래시 예방
         for y, h in bands:
             full = want_full
             for cy in range(y, y + h, MAX_H):
@@ -212,6 +217,7 @@ def main() -> int:
                     last_full = time.monotonic()
             else:
                 prev = None  # X4 복귀 시 전체 프레임 재전송
+                time.sleep(2.0)  # 백오프: 갱신 중인 X4를 연타하지 않는다
             if ok != last_ok:
                 print(f"x4 bitmap bridge: {'connected' if ok else 'X4 unavailable'}",
                       file=sys.stderr)
