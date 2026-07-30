@@ -131,6 +131,16 @@ def post_band(base: str, y: int, h: int, data: bytes, token: str,
         return False
 
 
+def x4_in_bitmap_mode(base: str, timeout: float) -> bool | None:
+    """X4가 비트맵 모드인지 확인. 통신 실패 시 None."""
+    try:
+        with urllib.request.urlopen(base.rstrip("/") + "/status", timeout=timeout) as resp:
+            import json
+            return json.load(resp).get("mode") == "bitmap"
+    except (OSError, urllib.error.URLError, ValueError, TimeoutError):
+        return None
+
+
 def dirty_bands(prev: bytes | None, cur: bytes) -> list[tuple[int, int]]:
     if prev is None:
         return [(0, PANEL_H)]
@@ -164,7 +174,14 @@ def main() -> int:
     prev: bytes | None = None
     last_ok = True
     last_full = time.monotonic()
+    last_probe = time.monotonic()
     while True:
+        # X4 재부팅 감지: 15초마다 상태 확인, 비트맵 모드가 아니면 전체 재전송
+        if prev is not None and time.monotonic() - last_probe > 15:
+            last_probe = time.monotonic()
+            if x4_in_bitmap_mode(args.x4, args.post_timeout) is False:
+                print("x4 bitmap bridge: X4 rebooted, resending full frame", file=sys.stderr)
+                prev = None
         try:
             lines = capture(args.target, r.cols, r.rows)
             cur = r.render(lines, cursor_pos(args.target))
