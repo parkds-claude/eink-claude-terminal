@@ -34,6 +34,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--interval", type=float, default=0.3, help="poll seconds")
     parser.add_argument("--post-timeout", type=float, default=5.0)
     parser.add_argument("--token", default="", help="X-Auth shared secret")
+    parser.add_argument("--full-every", type=float, default=300.0,
+                        help="잔상 방지용 전체갱신 최소 주기(초), 0=비활성")
     return parser.parse_args()
 
 
@@ -161,6 +163,7 @@ def main() -> int:
 
     prev: bytes | None = None
     last_ok = True
+    last_full = time.monotonic()
     while True:
         try:
             lines = capture(args.target, r.cols, r.rows)
@@ -171,10 +174,12 @@ def main() -> int:
             continue
 
         ok = True
-        bands = dirty_bands(prev, cur)
+        want_full = prev is None or (
+            args.full_every > 0 and time.monotonic() - last_full > args.full_every)
+        bands = dirty_bands(None if want_full else prev, cur)
         MAX_H = 240  # ESP32 힙 보호: 밴드당 최대 240행(base64 40KB)
         for y, h in bands:
-            full = prev is None
+            full = want_full
             for cy in range(y, y + h, MAX_H):
                 ch = min(MAX_H, y + h - cy)
                 if not post_band(args.x4, cy, ch, cur[cy * STRIDE:(cy + ch) * STRIDE],
@@ -186,6 +191,8 @@ def main() -> int:
         if bands:
             if ok:
                 prev = cur
+                if want_full:
+                    last_full = time.monotonic()
             else:
                 prev = None  # X4 복귀 시 전체 프레임 재전송
             if ok != last_ok:

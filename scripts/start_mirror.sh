@@ -8,9 +8,9 @@ set -euo pipefail
 
 X4_IP="${1:-x4-terminal.local}"   # mDNS 호스트명 (DHCP IP 변경 무관)
 SESSION="x4-terminal"
-FONT_SIZE="${2:-20}"   # 20 → 80x21 셀 (16 → 100x26 작은 글씨)
-COLS=80
-ROWS=21
+FONT_SIZE="${2:-28}"   # 28 → 57x14 큰 글씨 (20 → 80x21, 16 → 100x26)
+COLS=57
+ROWS=14
 BRIDGE="$HOME/eink-claude-terminal/bridge/x4_bitmap_bridge.py"
 LOG="$HOME/eink-claude-terminal/bridge.log"
 PIDFILE="$HOME/eink-claude-terminal/bridge.pid"
