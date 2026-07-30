@@ -53,7 +53,7 @@
 2. ☐ 프레임 전달을 push→**폴링(GET /frame)** 으로 전환 (외부망 대응)
 3. ☐ Cloudflare Tunnel + x-device-secret 인증 (cardputer-relay 코드 재활용, 새 포트)
 4. ☐ 입력 수단 결정: (a) BLE 키보드→X4 직결(xteink-ebook의 HID 파싱 성공 코드 이식) vs (b) 폰 입력(공식 /rc 또는 Happy) — 실사용 후 결정
-5. ☐ 한글 표시: 브리지에서 텍스트→1-bit 이미지 렌더(갈무리 픽셀 폰트, gooddisplay-nametag 노하우) 방식 검토
+5. ☑ 한글 표시 — 2026-07-31 완료. `bridge/x4_bitmap_bridge.py`(D2Coding 렌더→밴드 diff→POST /band) + 펌웨어 프레임버퍼/OTA. 100×26셀
 6. ☐ Threads 사례(reMarkable) 힌트 적용: **단어 단위 출력 버퍼링**으로 부분갱신 횟수 최소화
 
 ## Phase 3 (선택) — X4 네이티브 터미널 앱

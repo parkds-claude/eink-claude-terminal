@@ -6,9 +6,9 @@
 
 ## 현재 상태
 
-- **✅ Phase 1 완료 (2026-07-31)**: X4(192.168.0.5)에서 Claude Code 실시간 미러 + 타이핑 동작. 토큰 인증(X-Auth)까지 적용 (상세: [docs/daily/2026-07-31.md](docs/daily/2026-07-31.md))
+- **✅ Phase 1 완료 + Phase 2-① 한글 표시 완료 (2026-07-31)**: X4에서 Claude Code 실시간 미러(**한글 지원**, 100×26셀) + 타이핑 동작. 토큰 인증 + OTA 무선업데이트 적용 (상세: [docs/daily/2026-07-31.md](docs/daily/2026-07-31.md))
 - **사용법**: `scripts/start_mirror.sh` 실행 → 아무 터미널에서 `tmux attach -t x4-terminal`로 타이핑
-- **다음**: Phase 2 — 한글 표시, BLE 키보드 직결, Cloudflare Tunnel 외부 사용
+- **다음**: Phase 2 계속 — BLE 키보드 직결 입력, Cloudflare Tunnel 외부 사용
 
 ## 핵심 결론 (Phase 0)
 

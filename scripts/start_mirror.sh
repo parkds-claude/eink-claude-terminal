@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-X4_IP="${1:-192.168.0.5}"
+X4_IP="${1:-x4-terminal.local}"   # mDNS 호스트명 (DHCP IP 변경 무관)
 SESSION="x4-terminal"
 COLS=100   # D2Coding 16px 기준 (bridge가 실측 후 다시 resize)
 ROWS=26
