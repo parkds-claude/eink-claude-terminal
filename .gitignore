@@ -11,3 +11,4 @@ build/
 # macOS
 .DS_Store
 ._*
+.x4-token

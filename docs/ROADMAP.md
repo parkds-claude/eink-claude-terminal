@@ -38,12 +38,12 @@
 
 ## Phase 1 — X4 터미널 미러 (집 전용, 목표: 반나절)
 
-1. ☐ X4 현재 펌웨어(SUMI 한글판) 전체 백업 1부 추가 확보 — **⚠ 필수 격상: 구 백업 bin이 이 맥미니에 없음(sha256만 이관, 원본은 구 기기). 플래시 전 재덤프 없이는 원복 불가** (2026-07-30 발견)
-2. ☑ xteink-terminal 클론 → PlatformIO 빌드 (X4 = `esp32-c3-devkitm-1`, 16MB) — 2026-07-30 빌드 성공 (RAM 27%, Flash 66%)
-3. ☐ X4 플래시 (BOOT 홀드 + USB, `esptool write-flash 0x0`) → Wi-Fi 설정
-4. ☐ 맥미니: tmux 세션에 Claude Code 상시 실행 + Python 브리지(`tmux capture-pane` → POST /frame) 가동
-5. ☐ Magic Keyboard(또는 성공 이력 키보드)를 **맥미니에 페어링** → 실사용 테스트
-6. ☐ 판정 기록: 갱신 체감·글자 수(약 56×28셀)·한글 출력 여부 → daily에 기록
+1. ☑ X4 현재 펌웨어(SUMI 한글판) 전체 백업 — 2026-07-30 16MB 재덤프 완료 (`sumi-korean-v3-REDUMP-2026-07-30-full.bin`, 구 백업 bin은 구 기기에만 있어 이 덤프가 유일 원복 수단)
+2. ☑ xteink-terminal 클론 → PlatformIO 빌드 — 2026-07-30 성공 (RAM 27%, Flash 66%)
+3. ☑ X4 플래시 + Wi-Fi 설정 — 2026-07-31 완료 (iptime_ss, 192.168.0.5, WiFiManager 포털을 맥미니 en1로 무접촉 프로비저닝)
+4. ☑ tmux `x4-terminal` 세션 + 브리지 가동 — `scripts/start_mirror.sh` 표준 진입점, 토큰 인증(X-Auth) 자체 패치 포함
+5. ☐ 실물 키보드 실사용 테스트 (현재는 `tmux attach`로 타이핑 검증 완료)
+6. ☑ 판정 기록 — 66×29셀, 부분갱신 밴드, 한글 미지원(Phase 2 과제) → [daily/2026-07-31.md](daily/2026-07-31.md)
 
 **알려진 리스크**: xteink-terminal은 3커밋 초기 프로젝트 — 빌드 실패·화면 깨짐 시 직접 수정 각오. 한글 미지원 가능성 높음(비트맵 폰트 ASCII) → Phase 1은 영문으로 판정, 한글은 Phase 2에서 브리지 렌더링으로 해결 검토.
 

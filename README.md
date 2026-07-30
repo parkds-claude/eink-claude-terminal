@@ -6,9 +6,9 @@
 
 ## 현재 상태
 
-- **Phase 1 진행 중 (2026-07-30)**: xteink-terminal 클론 + 펌웨어 빌드 성공, tmux 설치 완료
-- **블로커**: ① X4가 USB 시리얼로 미검출 (케이블/전원 확인 필요) ② 구 펌웨어 백업 bin이 이 맥미니에 없음 → 플래시 전 재덤프 필수 (상세: [docs/daily/2026-07-30.md](docs/daily/2026-07-30.md))
-- **다음**: X4 시리얼 인식 → 펌웨어 재덤프 백업 → 플래시 → 브리지 가동
+- **✅ Phase 1 완료 (2026-07-31)**: X4(192.168.0.5)에서 Claude Code 실시간 미러 + 타이핑 동작. 토큰 인증(X-Auth)까지 적용 (상세: [docs/daily/2026-07-31.md](docs/daily/2026-07-31.md))
+- **사용법**: `scripts/start_mirror.sh` 실행 → 아무 터미널에서 `tmux attach -t x4-terminal`로 타이핑
+- **다음**: Phase 2 — 한글 표시, BLE 키보드 직결, Cloudflare Tunnel 외부 사용
 
 ## 핵심 결론 (Phase 0)
 
@@ -22,7 +22,7 @@
 
 | 단계 | 내용 | 비용/기간 | 상태 |
 |---|---|---|---|
-| **1** | X4 + xteink-terminal 미러 (키보드는 맥미니 페어링, 집 전용) | 0원 / 반나절 | ☐ |
+| **1** | X4 + xteink-terminal 미러 (키보드는 맥미니 페어링, 집 전용) | 0원 / 반나절 | ✅ 2026-07-31 |
 | **2** | 브리지에 입력(`tmux send-keys`) + Cloudflare Tunnel → 외부 사용 | 0원 / 1~2주 | ☐ |
 | **3** | (선택) X4 네이티브 터미널 앱 — CrossPoint 생태계 오픈소스 기여 | 수 주 | ☐ |
 | 보험 | Pi Zero 2 W + Waveshare 4.2" + PaperTTY (~5만원) — 1·2단계 불만족 시 | 보류 | ☐ |
