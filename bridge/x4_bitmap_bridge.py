@@ -26,8 +26,8 @@ PANEL_H = 480
 STRIDE = PANEL_W // 8
 BAND_GAP_MERGE = 16  # 이 간격(px) 이하로 떨어진 변경 행은 한 밴드로 합침
 INVERT_TABLE = bytes(b ^ 0xFF for b in range(256))
-BATT_BAR_H = 2       # 상단 배터리 잔량 바 두께(px)
-BATT_RESERVE = 3     # 바 + 텍스트 사이 간격으로 예약하는 상단 픽셀
+BATT_BAR_H = 4       # 상단 배터리 잔량 바 두께(px) — 2px는 베젤에 가려 안 보임 (실측)
+BATT_RESERVE = 5     # 바 + 텍스트 사이 간격으로 예약하는 상단 픽셀 (5 초과 시 폰트22에서 1행 손실)
 BATT_STEP = 5        # ADC 노이즈로 인한 불필요 갱신 방지용 양자화 단위(%)
 
 
@@ -118,6 +118,11 @@ def capture(target: str, cols: int, rows: int) -> list[str]:
     output = run_tmux(["capture-pane", "-p", "-t", target, "-S", f"-{rows}", "-E", "-"])
     wrapped: list[str] = []
     for line in output.splitlines():
+        # Claude Code Remote Control 링크(claude.ai 세션 하이퍼링크)의 표시
+        # 텍스트 "/rc"가 한 줄을 차지한다 — e-ink에선 클릭 불가한 노이즈라
+        # 지운다. 줄을 되찾으려면 Claude Code에서 disableRemoteControl 필요.
+        if line.strip() == "/rc":
+            line = ""
         wrapped.extend(wrap_cells(line, cols))
     if len(wrapped) < rows:
         wrapped = [""] * (rows - len(wrapped)) + wrapped
