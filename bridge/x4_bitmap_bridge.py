@@ -134,7 +134,11 @@ def post_band(base: str, y: int, h: int, data: bytes, token: str,
     qs = f"y={y}&h={h}" + ("&full=1" if full else "")
     if _use_raw:
         url = f"{base.rstrip('/')}/bandraw?{qs}"
-        body = data
+        # WebServer raw 루프의 readBytes(buf, 1436)가 마지막 청크에서 버퍼를
+        # 못 채우면 타임아웃(5s+)까지 응답이 밀린다. 바디를 HTTP_RAW_BUFLEN
+        # (1436) 배수로 0 패딩해 항상 즉시 반환되게 한다. 펌웨어는 h*100
+        # 바이트만 쓰고 나머지는 버린다.
+        body = data + b"\x00" * (-len(data) % 1436)
         ctype = "application/octet-stream"
     else:
         url = f"{base.rstrip('/')}/band?{qs}"
