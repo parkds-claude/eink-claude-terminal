@@ -1,6 +1,8 @@
 # eink-claude-terminal — 전자잉크 Claude Code 단말
 
 > 보유 e-ink 기기 + 블루투스 키보드로, 맥미니(24시간 서버)의 Claude Code를 쓰는 실물 단말을 만든다.
+>
+> **EN**: A physical e-ink terminal for Claude Code — Xteink X4 (ESP32-C3) firmware + Python tmux mirror bridge with Korean (CJK) text support. Based on [maddiedreese/xteink-terminal](https://github.com/maddiedreese/xteink-terminal).
 
 ![상상도](assets/concept.png)
 
