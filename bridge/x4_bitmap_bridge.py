@@ -23,6 +23,7 @@ PANEL_W = 800
 PANEL_H = 480
 STRIDE = PANEL_W // 8
 BAND_GAP_MERGE = 16  # 이 간격(px) 이하로 떨어진 변경 행은 한 밴드로 합침
+INVERT_TABLE = bytes(b ^ 0xFF for b in range(256))
 
 
 def parse_args() -> argparse.Namespace:
@@ -31,7 +32,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target", default="x4-terminal:", help="tmux target")
     parser.add_argument("--font", default=None, help="TTF path (default: bundled D2Coding)")
     parser.add_argument("--font-size", type=int, default=16, help="font pixel size (16=100x26, 20=80x21)")
-    parser.add_argument("--interval", type=float, default=0.3, help="poll seconds")
+    parser.add_argument("--interval", type=float, default=0.12, help="poll seconds")
     parser.add_argument("--post-timeout", type=float, default=12.0,
                         help="전체갱신(1.7s)+디코드보다 길게 — 중복 연결로 인한 힙 압박 방지")
     parser.add_argument("--token", default="", help="X-Auth shared secret")
@@ -88,7 +89,7 @@ class Renderer:
             draw.rectangle([x, y, x + self.adv - 1, y + self.line_h - 1], outline=0)
         mono = img.convert("1", dither=Image.Dither.NONE)
         raw = mono.tobytes()  # bit=1 → 흰색
-        return bytes(b ^ 0xFF for b in raw)  # 펌웨어는 bit=1 → 검정
+        return raw.translate(INVERT_TABLE)  # 펌웨어는 bit=1 → 검정
 
 
 def run_tmux(args: list[str]) -> str:
@@ -180,6 +181,7 @@ def main() -> int:
     last_ok = True
     last_full = time.monotonic()
     last_probe = time.monotonic()
+    last_key = None
     while True:
         # X4 재부팅 감지: 15초마다 상태 확인, 비트맵 모드가 아니면 전체 재전송
         if prev is not None and time.monotonic() - last_probe > 15:
@@ -189,7 +191,13 @@ def main() -> int:
                 prev = None
         try:
             lines = capture(args.target, r.cols, r.rows)
-            cur = r.render(lines, cursor_pos(args.target))
+            cpos = cursor_pos(args.target)
+            key = (tuple(lines), cpos)
+            if prev is not None and key == last_key:
+                time.sleep(args.interval)
+                continue
+            last_key = key
+            cur = r.render(lines, cpos)
         except (subprocess.CalledProcessError, FileNotFoundError) as error:
             print(f"x4 bitmap bridge: {error}", file=sys.stderr)
             time.sleep(1.0)
