@@ -23,4 +23,4 @@ fi
 echo $$ > "$PIDFILE"
 
 exec python3 "$BRIDGE" --x4 "$X4_URL" --target "$SESSION:" \
-  --font-size "$FONT_SIZE" --interval 0.3 --token "$TOKEN"
+  --font-size "$FONT_SIZE" --interval 0.12 --token "$TOKEN"

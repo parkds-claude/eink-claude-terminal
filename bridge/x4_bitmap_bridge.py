@@ -133,11 +133,12 @@ def post_band(base: str, y: int, h: int, data: bytes, token: str,
     global _use_raw
     qs = f"y={y}&h={h}" + ("&full=1" if full else "")
     if _use_raw:
-        url = f"{base.rstrip('/')}/bandraw?{qs}"
+        url = f"{base.rstrip('/')}/bandraw"
         # WebServer raw 루프의 readBytes(buf, 1436)가 마지막 청크에서 버퍼를
         # 못 채우면 타임아웃(5s+)까지 응답이 밀린다. 바디를 HTTP_RAW_BUFLEN
         # (1436) 배수로 0 패딩해 항상 즉시 반환되게 한다. 펌웨어는 h*100
-        # 바이트만 쓰고 나머지는 버린다.
+        # 바이트만 쓰고 나머지는 버린다. 밴드 좌표는 쿼리스트링이 raw 처리
+        # 시점에 파싱되지 않는 프레임워크 제약 때문에 헤더로 보낸다.
         body = data + b"\x00" * (-len(data) % 1436)
         ctype = "application/octet-stream"
     else:
@@ -145,6 +146,11 @@ def post_band(base: str, y: int, h: int, data: bytes, token: str,
         body = base64.b64encode(data)
         ctype = "text/plain"
     headers = {"Content-Type": ctype}
+    if _use_raw:
+        headers["X-Band-Y"] = str(y)
+        headers["X-Band-H"] = str(h)
+        if full:
+            headers["X-Band-Full"] = "1"
     if token:
         headers["X-Auth"] = token
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")
