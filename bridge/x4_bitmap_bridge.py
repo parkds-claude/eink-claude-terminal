@@ -10,12 +10,14 @@ from __future__ import annotations
 
 import argparse
 import base64
+import socket
 import subprocess
 import sys
 import time
 import unicodedata
 import urllib.error
 import urllib.request
+from urllib.parse import urlsplit, urlunsplit
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -128,6 +130,26 @@ def cursor_pos(target: str) -> tuple[int, int]:
 _use_raw = True
 
 
+def resolve_base(base: str) -> str:
+    """호스트명을 IP로 1회 해석한 base URL을 돌려준다.
+
+    macOS에서 .local(mDNS) 조회는 요청마다 kevent에서 수 초씩 블록될 수
+    있어, 매 POST마다 재조회하면 미러 갱신이 초 단위로 밀린다 (2026-07-31
+    실측). 실패 시 원본을 그대로 반환한다 — 호출부가 전송 실패 백오프에서
+    재시도한다.
+    """
+    parts = urlsplit(base)
+    host = parts.hostname
+    if not host:
+        return base
+    try:
+        ip = socket.gethostbyname(host)
+    except OSError:
+        return base
+    netloc = ip + (f":{parts.port}" if parts.port else "")
+    return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+
+
 def post_band(base: str, y: int, h: int, data: bytes, token: str,
               timeout: float, full: bool) -> bool:
     global _use_raw
@@ -208,6 +230,7 @@ def main() -> int:
     print(f"x4 bitmap bridge: {r.cols}x{r.rows} cells "
           f"(cell {r.adv}x{r.line_h}px, font {args.font_size}px)", file=sys.stderr)
 
+    base = resolve_base(args.x4)
     prev: bytes | None = None
     last_ok = True
     last_full = time.monotonic()
@@ -217,7 +240,7 @@ def main() -> int:
         # X4 재부팅 감지: 15초마다 상태 확인, 비트맵 모드가 아니면 전체 재전송
         if prev is not None and time.monotonic() - last_probe > 15:
             last_probe = time.monotonic()
-            if x4_in_bitmap_mode(args.x4, args.post_timeout) is False:
+            if x4_in_bitmap_mode(base, args.post_timeout) is False:
                 print("x4 bitmap bridge: X4 rebooted, resending full frame", file=sys.stderr)
                 prev = None
         try:
@@ -245,7 +268,7 @@ def main() -> int:
             full = want_full
             for cy in range(y, y + h, MAX_H):
                 ch = min(MAX_H, y + h - cy)
-                if not post_band(args.x4, cy, ch, cur[cy * STRIDE:(cy + ch) * STRIDE],
+                if not post_band(base, cy, ch, cur[cy * STRIDE:(cy + ch) * STRIDE],
                                  args.token, args.post_timeout, full and cy == y):
                     ok = False
                     break
@@ -259,6 +282,7 @@ def main() -> int:
             else:
                 prev = None  # X4 복귀 시 전체 프레임 재전송
                 time.sleep(2.0)  # 백오프: 갱신 중인 X4를 연타하지 않는다
+                base = resolve_base(args.x4)  # DHCP로 IP가 바뀐 경우 대비 재해석
             if ok != last_ok:
                 print(f"x4 bitmap bridge: {'connected' if ok else 'X4 unavailable'}",
                       file=sys.stderr)
