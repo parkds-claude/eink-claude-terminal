@@ -123,16 +123,37 @@ def cursor_pos(target: str) -> tuple[int, int]:
         return 0, 0
 
 
+# 신형 펌웨어의 /bandraw(raw 스트리밍)를 우선 사용하고, 404가 오면 구형
+# 펌웨어로 판단해 base64 /band 로 영구 폴백한다 (세션 내 1회 판정).
+_use_raw = True
+
+
 def post_band(base: str, y: int, h: int, data: bytes, token: str,
               timeout: float, full: bool) -> bool:
-    url = f"{base.rstrip('/')}/band?y={y}&h={h}" + ("&full=1" if full else "")
-    headers = {"Content-Type": "text/plain"}
+    global _use_raw
+    qs = f"y={y}&h={h}" + ("&full=1" if full else "")
+    if _use_raw:
+        url = f"{base.rstrip('/')}/bandraw?{qs}"
+        body = data
+        ctype = "application/octet-stream"
+    else:
+        url = f"{base.rstrip('/')}/band?{qs}"
+        body = base64.b64encode(data)
+        ctype = "text/plain"
+    headers = {"Content-Type": ctype}
     if token:
         headers["X-Auth"] = token
-    req = urllib.request.Request(url, data=base64.b64encode(data), headers=headers, method="POST")
+    req = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return 200 <= resp.status < 300
+    except urllib.error.HTTPError as error:
+        if _use_raw and error.code == 404:
+            print("x4 bitmap bridge: /bandraw 미지원 펌웨어 — base64 /band 폴백",
+                  file=sys.stderr)
+            _use_raw = False
+            return post_band(base, y, h, data, token, timeout, full)
+        return False
     except (OSError, urllib.error.URLError, TimeoutError):
         return False
 
@@ -207,7 +228,9 @@ def main() -> int:
         want_full = prev is None or (
             args.full_every > 0 and time.monotonic() - last_full > args.full_every)
         bands = dirty_bands(None if want_full else prev, cur)
-        MAX_H = 120  # ESP32 힙 보호: 밴드당 최대 120행(base64 20KB) — 크래시 예방
+        # raw 스트리밍은 힙 버퍼가 없어 480행(전체 프레임)도 한 번에 보낸다.
+        # base64 폴백 시엔 ESP32 힙 보호를 위해 120행으로 쪼갠다.
+        MAX_H = 480 if _use_raw else 120
         for y, h in bands:
             full = want_full
             for cy in range(y, y + h, MAX_H):

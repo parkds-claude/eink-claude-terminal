@@ -41,7 +41,7 @@ if [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
 fi
 TOKEN=$(cat "$HOME/eink-claude-terminal/.x4-token" 2>/dev/null || echo "")
 nohup python3 "$BRIDGE" --x4 "http://$X4_IP" --target "$SESSION:" \
-  --font-size "$FONT_SIZE" --interval 0.3 --token "$TOKEN" >>"$LOG" 2>&1 &
+  --font-size "$FONT_SIZE" --interval 0.12 --token "$TOKEN" >>"$LOG" 2>&1 &
 echo $! > "$PIDFILE"
 echo "브리지 기동: PID $(cat "$PIDFILE") → http://$X4_IP (로그: $LOG)"
 echo "타이핑: 아무 터미널에서 'tmux attach -t $SESSION'"
