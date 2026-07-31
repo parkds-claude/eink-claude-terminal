@@ -26,6 +26,9 @@ PANEL_H = 480
 STRIDE = PANEL_W // 8
 BAND_GAP_MERGE = 16  # 이 간격(px) 이하로 떨어진 변경 행은 한 밴드로 합침
 INVERT_TABLE = bytes(b ^ 0xFF for b in range(256))
+BATT_BAR_H = 2       # 상단 배터리 잔량 바 두께(px)
+BATT_RESERVE = 3     # 바 + 텍스트 사이 간격으로 예약하는 상단 픽셀
+BATT_STEP = 5        # ADC 노이즈로 인한 불필요 갱신 방지용 양자화 단위(%)
 
 
 def parse_args() -> argparse.Namespace:
@@ -74,13 +77,18 @@ class Renderer:
         self.adv = int(self.font.getlength("A"))
         self.line_h = ascent + descent
         self.cols = PANEL_W // self.adv
-        self.rows = PANEL_H // self.line_h
+        # 상단 BATT_RESERVE px는 배터리 바 영역 — 폰트 16/22 모두 셀 수는 변하지 않음
+        self.rows = (PANEL_H - BATT_RESERVE) // self.line_h
         self.mx = (PANEL_W - self.cols * self.adv) // 2
-        self.my = (PANEL_H - self.rows * self.line_h) // 2
+        self.my = BATT_RESERVE + (PANEL_H - BATT_RESERVE - self.rows * self.line_h) // 2
 
-    def render(self, lines: list[str], cursor: tuple[int, int]) -> bytes:
+    def render(self, lines: list[str], cursor: tuple[int, int],
+               battery: int | None = None) -> bytes:
         img = Image.new("L", (PANEL_W, PANEL_H), 255)
         draw = ImageDraw.Draw(img)
+        if battery is not None:
+            w = max(4, PANEL_W * battery // 100)
+            draw.rectangle([0, 0, w - 1, BATT_BAR_H - 1], fill=0)
         for i, line in enumerate(lines[: self.rows]):
             if line:
                 draw.text((self.mx, self.my + i * self.line_h), line, font=self.font, fill=0)
@@ -190,12 +198,12 @@ def post_band(base: str, y: int, h: int, data: bytes, token: str,
         return False
 
 
-def x4_in_bitmap_mode(base: str, timeout: float) -> bool | None:
-    """X4가 비트맵 모드인지 확인. 통신 실패 시 None."""
+def x4_status(base: str, timeout: float) -> dict | None:
+    """X4 /status JSON(mode, battery 등). 통신 실패 시 None."""
     try:
         with urllib.request.urlopen(base.rstrip("/") + "/status", timeout=timeout) as resp:
             import json
-            return json.load(resp).get("mode") == "bitmap"
+            return json.load(resp)
     except (OSError, urllib.error.URLError, ValueError, TimeoutError):
         return None
 
@@ -234,24 +242,30 @@ def main() -> int:
     prev: bytes | None = None
     last_ok = True
     last_full = time.monotonic()
-    last_probe = time.monotonic()
+    last_probe = float("-inf")  # 첫 루프에서 즉시 배터리 조회
     last_key = None
+    battery: int | None = None
     while True:
-        # X4 재부팅 감지: 15초마다 상태 확인, 비트맵 모드가 아니면 전체 재전송
-        if prev is not None and time.monotonic() - last_probe > 15:
+        # 15초마다 상태 확인: 재부팅 감지(비트맵 모드 이탈 시 전체 재전송) + 배터리 갱신
+        if time.monotonic() - last_probe > 15:
             last_probe = time.monotonic()
-            if x4_in_bitmap_mode(base, args.post_timeout) is False:
-                print("x4 bitmap bridge: X4 rebooted, resending full frame", file=sys.stderr)
-                prev = None
+            status = x4_status(base, args.post_timeout)
+            if status is not None:
+                b = status.get("battery")
+                if isinstance(b, int):
+                    battery = round(b / BATT_STEP) * BATT_STEP
+                if prev is not None and status.get("mode") != "bitmap":
+                    print("x4 bitmap bridge: X4 rebooted, resending full frame", file=sys.stderr)
+                    prev = None
         try:
             lines = capture(args.target, r.cols, r.rows)
             cpos = cursor_pos(args.target)
-            key = (tuple(lines), cpos)
+            key = (tuple(lines), cpos, battery)
             if prev is not None and key == last_key:
                 time.sleep(args.interval)
                 continue
             last_key = key
-            cur = r.render(lines, cpos)
+            cur = r.render(lines, cpos, battery)
         except (subprocess.CalledProcessError, FileNotFoundError) as error:
             print(f"x4 bitmap bridge: {error}", file=sys.stderr)
             time.sleep(1.0)
