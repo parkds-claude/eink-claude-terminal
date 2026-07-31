@@ -16,3 +16,5 @@ build/
 # 런타임 파일 (2026-07-31 보안점검)
 bridge.log
 bridge.pid
+__pycache__/
+*.pyc
