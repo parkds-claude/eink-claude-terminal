@@ -282,9 +282,17 @@ def main() -> int:
     SCROLL_IDLE_RETURN = 90                   # 초 — 방치 시 라이브 복귀
     # 화면 프레임 DVR — Claude Code처럼 절대좌표로 그리는 TUI는 tmux 히스토리가
     # 안 쌓이므로(2026-08-03 실측), 브리지가 지나간 화면 자체를 보관한다.
+    # 하단 상태줄(타이머·토큰 카운터)만 바뀐 프레임을 걸러내지 않으면 페이지가
+    # 전부 비슷해지므로, 본문 기준 4줄 이상 달라졌을 때만 새 프레임으로 저장.
     frame_hist: deque[list[str]] = deque(maxlen=150)
     last_hist_push = 0.0
-    HIST_PUSH_MIN_GAP = 1.0                   # 스트리밍 중 초당 1프레임만 보관
+    HIST_PUSH_MIN_GAP = 1.0                   # 최소 저장 간격(초)
+    HIST_IGNORE_TAIL = 3                      # 비교 제외: 하단 상태줄 줄 수
+    HIST_MIN_DIFF_LINES = 4                   # 새 프레임으로 칠 본문 변경 줄 수
+
+    def body_diff(a: list[str], b: list[str]) -> int:
+        aa, bb = a[:-HIST_IGNORE_TAIL], b[:-HIST_IGNORE_TAIL]
+        return sum(1 for x, y in zip(aa, bb) if x != y) + abs(len(aa) - len(bb))
     while True:
         # 15초마다 상태 확인: 재부팅 감지(비트맵 모드 이탈 시 전체 재전송) + 배터리 갱신
         if time.monotonic() - last_probe > 15:
@@ -315,8 +323,9 @@ def main() -> int:
             live = capture(args.target, r.cols, r.rows)
             cpos = cursor_pos(args.target)
             now_m = time.monotonic()
-            if (not frame_hist or live != frame_hist[-1]) and \
-                    now_m - last_hist_push >= HIST_PUSH_MIN_GAP:
+            if now_m - last_hist_push >= HIST_PUSH_MIN_GAP and (
+                    not frame_hist
+                    or body_diff(live, frame_hist[-1]) >= HIST_MIN_DIFF_LINES):
                 frame_hist.append(list(live))
                 last_hist_push = now_m
 
