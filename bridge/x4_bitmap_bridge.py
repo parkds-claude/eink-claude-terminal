@@ -74,6 +74,8 @@ def wrap_cells(line: str, cols: int) -> list[str]:
 class Renderer:
     def __init__(self, font_path: str, font_size: int):
         self.font = ImageFont.truetype(font_path, font_size)
+        self.font_big = ImageFont.truetype(font_path, 150)   # 오버레이 본문(시각/배터리)
+        self.font_mid = ImageFont.truetype(font_path, 44)    # 오버레이 부제
         ascent, descent = self.font.getmetrics()
         self.adv = int(self.font.getlength("A"))
         self.line_h = ascent + descent
@@ -110,6 +112,31 @@ class Renderer:
         raw = mono.tobytes()  # bit=1 → 흰색
         return raw.translate(INVERT_TABLE)  # 펌웨어는 bit=1 → 검정
 
+    def render_overlay(self, kind: str, battery: int | None) -> bytes:
+        """버튼 오버레이 — 'time'=큰 시계, 'batt'=배터리 게이지 (노안 기준 왕글씨)."""
+        img = Image.new("L", (PANEL_W, PANEL_H), 255)
+        draw = ImageDraw.Draw(img)
+        if kind == "time":
+            t = time.localtime()
+            wd = "월화수목금토일"[t.tm_wday]
+            main = time.strftime("%H:%M", t)
+            sub = f"{t.tm_mon}월 {t.tm_mday}일 ({wd})"
+        else:
+            main = f"{battery}%" if battery is not None else "--%"
+            sub = "배터리"
+            # 게이지 바
+            gx0, gx1, gy0, gy1 = 100, PANEL_W - 100, 360, 410
+            draw.rectangle([gx0, gy0, gx1, gy1], outline=0, width=4)
+            if battery is not None:
+                fill_w = int((gx1 - gx0 - 12) * battery / 100)
+                draw.rectangle([gx0 + 6, gy0 + 6, gx0 + 6 + fill_w, gy1 - 6], fill=0)
+        mw = draw.textlength(main, font=self.font_big)
+        sw = draw.textlength(sub, font=self.font_mid)
+        draw.text(((PANEL_W - mw) / 2, 110), main, font=self.font_big, fill=0)
+        draw.text(((PANEL_W - sw) / 2, 40), sub, font=self.font_mid, fill=0)
+        mono = img.convert("1", dither=Image.Dither.NONE)
+        return mono.tobytes().translate(INVERT_TABLE)
+
 
 def run_tmux(args: list[str]) -> str:
     result = subprocess.run(["tmux", *args], check=True, text=True,
@@ -142,16 +169,37 @@ def capture(target: str, cols: int, rows: int) -> list[str]:
     return wrapped[-rows:]
 
 
-def fetch_buttons(base: str, token: str, timeout: float) -> tuple[int, int] | None:
-    """X4 /btn 폴링 → (업카운터, 다운카운터). 실패는 None (스크롤만 잠시 무시)."""
+def fetch_buttons(base: str, token: str, timeout: float) -> tuple[int, ...] | None:
+    """X4 /btn 폴링 → (up, down, left, right, back, confirm) 카운터 6개.
+
+    구형 펌웨어(2개 응답)는 나머지를 0으로 채운다. 실패는 None.
+    """
     req = urllib.request.Request(base.rstrip("/") + "/btn",
                                  headers={"X-Auth": token} if token else {})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            u, d = resp.read().decode().strip().split(",")
-            return int(u), int(d)
+            vals = [int(v) for v in resp.read().decode().strip().split(",")]
+            return tuple((vals + [0] * 6)[:6])
     except Exception:
         return None
+
+
+def bring_terminal_front(session: str) -> None:
+    """맥 화면에서 tmux 세션이 붙은 터미널 창을 앞으로. attach 클라이언트가
+    없으면 새 Terminal 창에서 attach를 연다. (최초 1회 자동화 권한 승인 필요)"""
+    try:
+        has_client = bool(run_tmux(["list-clients", "-t", session + ":"]).strip())
+    except Exception:
+        has_client = False
+    scripts = ['tell application "Terminal" to activate']
+    if not has_client:
+        scripts.insert(0,
+            f'tell application "Terminal" to do script "tmux attach -t {session}"')
+    cmd = ["osascript"]
+    for s in scripts:
+        cmd += ["-e", s]
+    subprocess.run(cmd, check=False, timeout=10,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def cursor_pos(target: str) -> tuple[int, int]:
@@ -293,6 +341,9 @@ def main() -> int:
     def body_diff(a: list[str], b: list[str]) -> int:
         aa, bb = a[:-HIST_IGNORE_TAIL], b[:-HIST_IGNORE_TAIL]
         return sum(1 for x, y in zip(aa, bb) if x != y) + abs(len(aa) - len(bb))
+
+    overlay: str | None = None       # None | "time" | "batt"
+    overlay_until = 0.0
     while True:
         # 15초마다 상태 확인: 재부팅 감지(비트맵 모드 이탈 시 전체 재전송) + 배터리 갱신
         if time.monotonic() - last_probe > 15:
@@ -305,18 +356,31 @@ def main() -> int:
                 if prev is not None and status.get("mode") != "bitmap":
                     print("x4 bitmap bridge: X4 rebooted, resending full frame", file=sys.stderr)
                     prev = None
-        # 물리버튼(위/아래) → DVR 프레임 이동
+        # 물리버튼 → 위/아래=DVR, 왼쪽=시계, 오른쪽=배터리, 뒤로=맥 터미널, 확인=복귀
         btn = fetch_buttons(base, args.token, 0.5)
         if btn is not None:
             if btn_base is None:
                 btn_base = btn  # 재시작 직후 누적 카운터를 기준점으로만 사용
-            du, dd = btn[0] - btn_base[0], btn[1] - btn_base[1]
-            if du or dd:
+            du, dd, dl, dr, db, dc = (btn[i] - btn_base[i] for i in range(6))
+            if any((du, dd, dl, dr, db, dc)):
                 btn_base = btn
                 last_btn_at = time.monotonic()
-                scroll = max(0, min(len(frame_hist), scroll + du - dd))
+                if du or dd:
+                    scroll = max(0, min(len(frame_hist), scroll + du - dd))
+                    overlay = None
+                if dl:
+                    overlay, overlay_until = "time", time.monotonic() + 5
+                if dr:
+                    overlay, overlay_until = "batt", time.monotonic() + 5
+                if db:
+                    bring_terminal_front("x4-terminal")
+                if dc:  # 복귀: 스크롤·오버레이 전부 해제
+                    scroll = 0
+                    overlay = None
         if scroll > 0 and time.monotonic() - last_btn_at > SCROLL_IDLE_RETURN:
             scroll = 0  # 오래 방치하면 라이브로 복귀
+        if overlay and time.monotonic() > overlay_until:
+            overlay = None
 
         try:
             # 라이브 캡처는 항상 수행 — 스크롤 중에도 DVR은 계속 녹화
@@ -329,17 +393,25 @@ def main() -> int:
                 frame_hist.append(list(live))
                 last_hist_push = now_m
 
-            if scroll > 0:
-                shown = frame_hist[-min(scroll, len(frame_hist))]
-                shown_cpos = (-1, -1)  # 과거 프레임에는 커서 없음
+            if overlay:
+                key = ("overlay", overlay, time.strftime("%H:%M"), battery)
+                if prev is not None and key == last_key:
+                    time.sleep(args.interval)
+                    continue
+                last_key = key
+                cur = r.render_overlay(overlay, battery)
             else:
-                shown, shown_cpos = live, cpos
-            key = (tuple(shown), shown_cpos, battery, scroll)
-            if prev is not None and key == last_key:
-                time.sleep(args.interval)
-                continue
-            last_key = key
-            cur = r.render(shown, shown_cpos, battery, scroll)
+                if scroll > 0:
+                    shown = frame_hist[-min(scroll, len(frame_hist))]
+                    shown_cpos = (-1, -1)  # 과거 프레임에는 커서 없음
+                else:
+                    shown, shown_cpos = live, cpos
+                key = (tuple(shown), shown_cpos, battery, scroll)
+                if prev is not None and key == last_key:
+                    time.sleep(args.interval)
+                    continue
+                last_key = key
+                cur = r.render(shown, shown_cpos, battery, scroll)
         except (subprocess.CalledProcessError, FileNotFoundError) as error:
             print(f"x4 bitmap bridge: {error}", file=sys.stderr)
             time.sleep(1.0)
