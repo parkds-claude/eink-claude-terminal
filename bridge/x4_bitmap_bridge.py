@@ -17,6 +17,7 @@ import time
 import unicodedata
 import urllib.error
 import urllib.request
+from collections import deque
 from urllib.parse import urlsplit, urlunsplit
 
 from PIL import Image, ImageDraw, ImageFont
@@ -135,31 +136,6 @@ def capture(target: str, cols: int, rows: int) -> list[str]:
         # 지운다. 줄을 되찾으려면 Claude Code에서 disableRemoteControl 필요.
         if line.strip() == "/rc":
             line = ""
-        wrapped.extend(wrap_cells(line, cols))
-    if len(wrapped) < rows:
-        wrapped = [""] * (rows - len(wrapped)) + wrapped
-    return wrapped[-rows:]
-
-
-def history_size(target: str) -> int:
-    try:
-        return int(run_tmux(["display-message", "-p", "-t", target, "#{history_size}"]).strip())
-    except Exception:
-        return 0
-
-
-def capture_history(target: str, cols: int, rows: int, offset: int) -> list[str]:
-    """라이브 화면에서 offset 페이지 위의 스크롤백을 캡처.
-
-    tmux 좌표: 보이는 첫 줄이 0, 음수는 히스토리. offset=1이면 [-rows, -1].
-    히스토리가 모자라면 위쪽을 빈 줄로 채운다.
-    """
-    start = -(offset * rows)
-    end = start + rows - 1
-    output = run_tmux(["capture-pane", "-p", "-t", target,
-                       "-S", str(start), "-E", str(end)])
-    wrapped: list[str] = []
-    for line in output.splitlines():
         wrapped.extend(wrap_cells(line, cols))
     if len(wrapped) < rows:
         wrapped = [""] * (rows - len(wrapped)) + wrapped
@@ -301,9 +277,14 @@ def main() -> int:
     battery: int | None = None
     # 물리버튼 페이지 스크롤 상태
     btn_base: tuple[int, int] | None = None   # (up, down) 기준 카운터
-    scroll = 0                                # 0=라이브, n=위로 n페이지
+    scroll = 0                                # 0=라이브, n=위로 n프레임
     last_btn_at = time.monotonic()
     SCROLL_IDLE_RETURN = 90                   # 초 — 방치 시 라이브 복귀
+    # 화면 프레임 DVR — Claude Code처럼 절대좌표로 그리는 TUI는 tmux 히스토리가
+    # 안 쌓이므로(2026-08-03 실측), 브리지가 지나간 화면 자체를 보관한다.
+    frame_hist: deque[list[str]] = deque(maxlen=150)
+    last_hist_push = 0.0
+    HIST_PUSH_MIN_GAP = 1.0                   # 스트리밍 중 초당 1프레임만 보관
     while True:
         # 15초마다 상태 확인: 재부팅 감지(비트맵 모드 이탈 시 전체 재전송) + 배터리 갱신
         if time.monotonic() - last_probe > 15:
@@ -316,7 +297,7 @@ def main() -> int:
                 if prev is not None and status.get("mode") != "bitmap":
                     print("x4 bitmap bridge: X4 rebooted, resending full frame", file=sys.stderr)
                     prev = None
-        # 물리버튼(위/아래) → 스크롤백 페이지 이동
+        # 물리버튼(위/아래) → DVR 프레임 이동
         btn = fetch_buttons(base, args.token, 0.5)
         if btn is not None:
             if btn_base is None:
@@ -325,24 +306,31 @@ def main() -> int:
             if du or dd:
                 btn_base = btn
                 last_btn_at = time.monotonic()
-                max_scroll = max(0, history_size(args.target) // r.rows)
-                scroll = max(0, min(max_scroll, scroll + du - dd))
+                scroll = max(0, min(len(frame_hist), scroll + du - dd))
         if scroll > 0 and time.monotonic() - last_btn_at > SCROLL_IDLE_RETURN:
             scroll = 0  # 오래 방치하면 라이브로 복귀
 
         try:
+            # 라이브 캡처는 항상 수행 — 스크롤 중에도 DVR은 계속 녹화
+            live = capture(args.target, r.cols, r.rows)
+            cpos = cursor_pos(args.target)
+            now_m = time.monotonic()
+            if (not frame_hist or live != frame_hist[-1]) and \
+                    now_m - last_hist_push >= HIST_PUSH_MIN_GAP:
+                frame_hist.append(list(live))
+                last_hist_push = now_m
+
             if scroll > 0:
-                lines = capture_history(args.target, r.cols, r.rows, scroll)
-                cpos = (-1, -1)  # 스크롤백에는 커서 없음
+                shown = frame_hist[-min(scroll, len(frame_hist))]
+                shown_cpos = (-1, -1)  # 과거 프레임에는 커서 없음
             else:
-                lines = capture(args.target, r.cols, r.rows)
-                cpos = cursor_pos(args.target)
-            key = (tuple(lines), cpos, battery, scroll)
+                shown, shown_cpos = live, cpos
+            key = (tuple(shown), shown_cpos, battery, scroll)
             if prev is not None and key == last_key:
                 time.sleep(args.interval)
                 continue
             last_key = key
-            cur = r.render(lines, cpos, battery, scroll)
+            cur = r.render(shown, shown_cpos, battery, scroll)
         except (subprocess.CalledProcessError, FileNotFoundError) as error:
             print(f"x4 bitmap bridge: {error}", file=sys.stderr)
             time.sleep(1.0)
