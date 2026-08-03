@@ -121,6 +121,10 @@ def capture(target: str, cols: int, rows: int) -> list[str]:
     # 세션 크기는 X4 셀 수로 고정 (클라이언트 쪽에는 여백으로 표시됨)
     subprocess.run(["tmux", "set-option", "-t", target, "window-size", "manual"],
                    check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # alternate-screen off: Claude Code 같은 전체화면 TUI도 일반 버퍼에 쓰게 해
+    # 스크롤백 히스토리가 쌓이게 한다 (물리버튼 페이지업의 전제 — 2026-08-03)
+    subprocess.run(["tmux", "set-option", "-t", target, "alternate-screen", "off"],
+                   check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     subprocess.run(["tmux", "resize-window", "-t", target, "-x", str(cols), "-y", str(rows)],
                    check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     output = run_tmux(["capture-pane", "-p", "-t", target, "-S", f"-{rows}", "-E", "-"])
