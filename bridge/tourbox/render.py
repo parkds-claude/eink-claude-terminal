@@ -6,6 +6,8 @@
 """
 from __future__ import annotations
 
+import math
+
 from PIL import Image, ImageDraw, ImageFont
 
 from . import codes
