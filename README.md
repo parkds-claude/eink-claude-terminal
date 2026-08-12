@@ -8,10 +8,11 @@
 
 ## 현재 상태
 
+- **🎛 X4 역할 전환 (2026-08-12)**: 터미널 미러 → **TourBox Elite 키맵 실시간 표시**. 전면 앱의 프리셋을 스키매틱 다이어그램으로 표시, 키 편집·앱 전환 즉시 반영. 기동은 동일 launchd(com.x4mirror.bridge), 미러 롤백은 `X4_MODE=mirror`. (상세: [docs/daily/2026-08-12.md](docs/daily/2026-08-12.md), 포맷: [docs/tourbox-format.md](docs/tourbox-format.md))
 - **✅ Phase 1 완료 + Phase 2-① 한글 표시 완료 (2026-07-31)**: X4에서 Claude Code 실시간 미러(**한글 지원**, 100×26셀) + 타이핑 동작. 토큰 인증 + OTA 무선업데이트 적용 (상세: [docs/daily/2026-07-31.md](docs/daily/2026-07-31.md))
 - **⚡ 반응속도 개선 (2026-07-31 오전)**: 체감 1.5~2s → **0.6~1.0s**. WiFi 절전 해제(RTT 0.7s→25ms) + 화면갱신 FreeRTOS 태스크 분리 + /bandraw 스트리밍(전체 프레임 430ms) + 브리지 mDNS 1회 해석 + 폴링 0.12s. 남은 한계는 e-ink partial 물리속도(~0.4s)
 - **🔋 배터리 잔량 바 (2026-07-31 오후)**: 화면 최상단 2px 바로 잔량 표시 (전폭=100%, `/status` battery 재사용, 5% 단위 갱신)
-- **사용법**: `scripts/start_mirror.sh` 실행 → 아무 터미널에서 `tmux attach -t x4-terminal`로 타이핑
+- **사용법**: TourBox 키맵 표시 = `scripts/start_tourbox_display.sh` (launchd 있으면 재기동 위임) / 구 미러 = `scripts/start_mirror.sh` → `tmux attach -t x4-terminal`
 - **다음**: Phase 2 계속 — BLE 키보드 직결 입력, Cloudflare Tunnel 외부 사용
 
 ## 핵심 결론 (Phase 0)
