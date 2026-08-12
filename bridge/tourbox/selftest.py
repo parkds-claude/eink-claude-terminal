@@ -134,16 +134,26 @@ class WatchTests(unittest.TestCase):
         self.assertEqual(w.poll().preset_id, 2)          # 초기값 = tableid
         with log.open("a") as f:
             f.write("x - Now Process name is:Adobe Illustrator\n")
+            f.write("x - Change process name=Adobe Illustrator\n")
             f.write("x - switchPreset =========> currentPresetId=1, tabId=1\n")
         s = w.poll()
         self.assertEqual((s.preset_id, s.process, s.disabled),
                          (1, "Adobe Illustrator", False))
-        with log.open("a") as f:                          # 매칭 없음 → disabled
+        # 미매칭 앱 전환 — Console 실제 순서: disable 뒤에 switchPreset 이
+        # 또 찍힌다. disabled 가 유지되어야 한다 (2026-08-12 버그 수정 검증).
+        with log.open("a") as f:
+            f.write("x - Now Process name is:Google Chrome\n")
+            f.write("x - Change process name=__Others__\n")
             f.write("x - Not found match preset,disable Tourbox\n")
-        self.assertTrue(w.poll().disabled)
-        with log.open("a") as f:                          # 부분 줄 내성
+            f.write("x - switchPreset =========> currentPresetId=1, tabId=1\n")
+        s = w.poll()
+        self.assertEqual((s.process, s.disabled), ("Google Chrome", True))
+        # 매칭 앱으로 복귀 → 해제
+        with log.open("a") as f:                          # 부분 줄 내성 포함
+            f.write("x - Change process name=Adobe Photoshop\n")
             f.write("x - switchPreset =========> currentPre")
-        self.assertEqual(w.poll().preset_id, 1)
+        self.assertTrue(w.poll().disabled is False)
+        self.assertEqual(w.state.preset_id, 1)            # 부분 줄은 아직 미적용
         with log.open("a") as f:
             f.write("setId=0, tabId=0\n")
         s = w.poll()
