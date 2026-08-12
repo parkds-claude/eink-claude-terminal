@@ -19,20 +19,46 @@ PANEL_W, PANEL_H = 800, 480
 DEV_X0, DEV_Y0, DEV_X1, DEV_Y1 = 250, 72, 560, 400
 DEV_W, DEV_H = DEV_X1 - DEV_X0, DEV_Y1 - DEV_Y0
 
-# 컨트롤 위치 (기기 사각형 내 비율 — TourBox Elite 제품 사진 실측 비례)
+# 컨트롤 위치 (기기 영역 내 비율 — TourBox 공식 일러스트 비례)
 POS = {
-    "scroll": (0.22, 0.15),
-    "top":    (0.47, 0.08),
-    "c1":     (0.66, 0.13),
-    "c2":     (0.78, 0.13),
-    "knob":   (0.48, 0.42),
-    "tour":   (0.55, 0.64),
-    "side":   (0.00, 0.42),
-    "dial":   (0.18, 0.74),
-    "dpad":   (0.54, 0.84),
-    "tall":   (0.80, 0.64),
-    "short":  (0.93, 0.58),
+    "scroll": (0.20, 0.28),
+    "top":    (0.48, 0.17),
+    "c1":     (0.66, 0.31),
+    "c2":     (0.77, 0.31),
+    "knob":   (0.50, 0.45),
+    "tour":   (0.37, 0.58),
+    "side":   (0.03, 0.28),
+    "dial":   (0.24, 0.74),
+    "dpad":   (0.56, 0.75),
+    "tall":   (0.77, 0.70),
+    "short":  (0.89, 0.75),
 }
+
+# 유기적 외곽선 앵커 (기기 영역 비율 — 은은한 물결의 둥근 사각 실루엣)
+_OUTLINE = [
+    (0.10, 0.10), (0.30, 0.06), (0.52, 0.08), (0.75, 0.05), (0.93, 0.09),
+    (0.98, 0.30), (0.96, 0.55), (0.98, 0.82), (0.92, 0.95), (0.70, 0.93),
+    (0.45, 0.96), (0.20, 0.94), (0.05, 0.88), (0.04, 0.60), (0.03, 0.30),
+]
+
+
+def _catmull_rom(pts: list[tuple[float, float]], steps: int = 12):
+    """닫힌 Catmull-Rom 스플라인 보간점 목록."""
+    n = len(pts)
+    out = []
+    for i in range(n):
+        p0, p1, p2, p3 = (pts[(i + k - 1) % n] for k in range(4))
+        for t in (j / steps for j in range(steps)):
+            t2, t3 = t * t, t * t * t
+            out.append((
+                0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t
+                       + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2
+                       + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3),
+                0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t
+                       + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2
+                       + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3),
+            ))
+    return out
 
 S = codes.SLOTS  # 가독용 별칭
 
@@ -90,55 +116,101 @@ class KeymapRenderer:
 
     # ------------------------------------------------------------- schematic
     def _draw_device(self, draw):
-        draw.rounded_rectangle([DEV_X0, DEV_Y0, DEV_X1, DEV_Y1],
-                               radius=38, outline=0, width=2)
-        # scroll: 세로 휠
+        # 유기적 외곽 실루엣 (공식 일러스트의 물결 라인)
+        pts = [(DEV_X0 + fx * DEV_W, DEV_Y0 + fy * DEV_H)
+               for fx, fy in _catmull_rom(_OUTLINE)]
+        draw.line(pts + [pts[0]], fill=0, width=2, joint="curve")
+
+        # side: 왼쪽 엣지 밖으로 돌출한 탭
+        x, y = _pt("side")
+        draw.rounded_rectangle([x - 5, y - 26, x + 6, y + 26],
+                               radius=4, outline=0, width=2)
+
+        # scroll: 달걀형 하우징 + 내부 휠 + 리지 3개
         x, y = _pt("scroll")
-        draw.rounded_rectangle([x - 16, y - 30, x + 16, y + 30],
-                               radius=14, outline=0, width=2)
-        for dy in (-12, -4, 4, 12):
-            draw.line([x - 9, y + dy, x + 9, y + dy], fill=0, width=1)
-        # top: 가로 필
+        draw.ellipse([x - 31, y - 54, x + 31, y + 54], outline=0, width=2)
+        draw.rounded_rectangle([x - 16, y - 38, x + 16, y + 38],
+                               radius=15, outline=0, width=2)
+        for dy in (-16, 0, 16):
+            draw.rounded_rectangle([x - 8, y + dy - 3, x + 8, y + dy + 3],
+                                   radius=3, outline=0, width=1)
+
+        # top: 가로 필 (이중 라인)
         x, y = _pt("top")
-        draw.rounded_rectangle([x - 45, y - 14, x + 45, y + 14],
-                               radius=13, outline=0, width=2)
-        # c1/c2
+        draw.rounded_rectangle([x - 48, y - 16, x + 48, y + 16],
+                               radius=15, outline=0, width=2)
+        draw.rounded_rectangle([x - 42, y - 10, x + 42, y + 10],
+                               radius=10, outline=0, width=1)
+
+        # 로고
+        lx, ly = DEV_X0 + int(0.70 * DEV_W), DEV_Y0 + int(0.11 * DEV_H)
+        draw.text((lx, ly), "tour", font=self.f_small, fill=0)
+        draw.text((lx + 5, ly + 13), "box", font=self.f_small, fill=0)
+
+        # c1/c2: 원
         for key, lab in (("c1", "C1"), ("c2", "C2")):
             x, y = _pt(key)
-            draw.ellipse([x - 13, y - 13, x + 13, y + 13], outline=0, width=2)
-            draw.text((x - draw.textlength(lab, font=self.f_small) / 2, y - 7),
+            draw.ellipse([x - 14, y - 14, x + 14, y + 14], outline=0, width=2)
+            draw.text((x - draw.textlength(lab, font=self.f_small) / 2, y - 8),
                       lab, font=self.f_small, fill=0)
-        # knob: 큰 원 + 눈금
+
+        # knob: 스캘럽 엣지 + 골마다 방사선
         x, y = _pt("knob")
-        draw.ellipse([x - 46, y - 46, x + 46, y + 46], outline=0, width=3)
-        draw.ellipse([x - 30, y - 30, x + 30, y + 30], outline=0, width=1)
-        # tour
+        R = 42
+        knob_pts = []
+        for i in range(144):
+            th = i * 2 * math.pi / 144
+            r = R * (1 + 0.055 * math.cos(12 * th))
+            knob_pts.append((x + r * math.cos(th), y + r * math.sin(th)))
+        draw.line(knob_pts + [knob_pts[0]], fill=0, width=2, joint="curve")
+        for i in range(12):
+            th = (2 * i + 1) * math.pi / 12
+            draw.line([x + 0.30 * R * math.cos(th), y + 0.30 * R * math.sin(th),
+                       x + 0.82 * R * math.cos(th), y + 0.82 * R * math.sin(th)],
+                      fill=0, width=1)
+
+        # tour: 노브 좌하단의 작은 콩 모양
         x, y = _pt("tour")
-        draw.ellipse([x - 11, y - 11, x + 11, y + 11], outline=0, width=2)
-        # side: 왼쪽 엣지 세로 필 (기기 밖으로 반쯤 걸침)
-        x, y = _pt("side")
-        draw.rounded_rectangle([x - 8, y - 42, x + 8, y + 42],
-                               radius=8, outline=0, width=2)
-        # dial: 큰 원판
+        draw.ellipse([x - 13, y - 11, x + 13, y + 11], outline=0, width=2)
+
+        # dial: 방사 스포크 원판
         x, y = _pt("dial")
-        draw.ellipse([x - 52, y - 52, x + 52, y + 52], outline=0, width=3)
-        draw.ellipse([x - 14, y - 14, x + 14, y + 14], outline=0, width=1)
-        # dpad: 십자
+        R = 50
+        draw.ellipse([x - R, y - R, x + R, y + R], outline=0, width=2)
+        for i in range(18):
+            th = i * math.pi / 9
+            draw.line([x + 10 * math.cos(th), y + 10 * math.sin(th),
+                       x + (R - 5) * math.cos(th), y + (R - 5) * math.sin(th)],
+                      fill=0, width=1)
+        draw.ellipse([x - 9, y - 9, x + 9, y + 9], outline=0, width=1, fill=255)
+
+        # dpad: 분리형 키 4개 + 중앙 다이아몬드
         x, y = _pt("dpad")
-        a = 15  # 팔 반폭
-        r = 40  # 팔 길이
-        draw.polygon([
-            (x - a, y - r), (x + a, y - r), (x + a, y - a), (x + r, y - a),
-            (x + r, y + a), (x + a, y + a), (x + a, y + r), (x - a, y + r),
-            (x - a, y + a), (x - r, y + a), (x - r, y - a), (x - a, y - a),
-        ], outline=0, width=2)
-        # tall / short
+        o, kl, ks = 29, 15, 12   # 키 중심 오프셋, 키 반변(긴/짧은)
+        for dx, dy, vert in ((0, -o, True), (0, o, True),
+                             (-o, 0, False), (o, 0, False)):
+            hw, hh = (ks, kl) if vert else (kl, ks)
+            draw.rounded_rectangle([x + dx - hw, y + dy - hh,
+                                    x + dx + hw, y + dy + hh],
+                                   radius=6, outline=0, width=2)
+        draw.polygon([(x, y - 7), (x + 7, y), (x, y + 7), (x - 7, y)],
+                     outline=0, width=1)
+
+        # tall: 세로 필 + 리지 3줄 / short: 돔
         x, y = _pt("tall")
-        draw.rounded_rectangle([x - 20, y - 34, x + 20, y + 34],
-                               radius=17, outline=0, width=2)
+        draw.rounded_rectangle([x - 19, y - 36, x + 19, y + 36],
+                               radius=18, outline=0, width=2)
+        for dy in (-11, 0, 11):
+            draw.line([x - 8, y + dy, x + 8, y + dy], fill=0, width=1)
         x, y = _pt("short")
-        draw.rounded_rectangle([x - 15, y - 27, x + 15, y + 27],
-                               radius=13, outline=0, width=2)
+        try:
+            draw.rounded_rectangle([x - 15, y - 28, x + 15, y + 28], radius=14,
+                                   corners=(True, True, False, False),
+                                   outline=0, width=2)
+            draw.line([x - 15, y + 28, x + 15, y + 28], fill=0, width=2)
+        except TypeError:  # Pillow < 9.1
+            draw.rounded_rectangle([x - 15, y - 28, x + 15, y + 28],
+                                   radius=14, outline=0, width=2)
 
     # ------------------------------------------------------------ main page
     def render_main(self, preset: Preset, process: str | None,
@@ -171,44 +243,44 @@ class KeymapRenderer:
         LX0, LX1 = 10, 240   # 좌측 콜아웃 열
         RX0, RX1 = 572, 790  # 우측 콜아웃 열
 
-        # 좌측: TOP, SCROLL, SIDE, DIAL
+        # 좌측: TOP, SCROLL, SIDE, TOUR, DIAL
         tx, ty = _pt("top")
         self._callout(d, LX0, LX1, 48, "TOP",
-                      [preset.label(0x02)], (tx - 45, ty), True)
+                      [preset.label(0x02)], (tx - 48, ty), True)
         sx, sy = _pt("scroll")
         self._callout(d, LX0, LX1, 118, "SCROLL",
-                      rot(0x09, 0x0A), (sx - 17, sy), True)
+                      rot(0x09, 0x0A), (sx - 31, sy), True)
         x, y = _pt("side")
-        self._callout(d, LX0, LX1, 208, "SIDE",
-                      [preset.label(0x01)], (x - 9, y), True)
+        self._callout(d, LX0, LX1, 188, "SIDE",
+                      [preset.label(0x01)], (x - 6, y), True)
+        x, y = _pt("tour")
+        self._callout(d, LX0, LX1, 244, "TOUR",
+                      [preset.label(0x2A)], (x - 11, y - 7), True)
         x, y = _pt("dial")
-        self._callout(d, LX0, LX1, 296, "DIAL",
+        self._callout(d, LX0, LX1, 312, "DIAL",
                       rot(0x0F, 0x38), (x - 53, y), True)
 
-        # 우측: C1, C2, KNOB, SHORT, TALL, TOUR
+        # 우측: C1, C2, KNOB, SHORT, TALL
         x, y = _pt("c1")
         self._callout(d, RX0, RX1, 48, "C1",
-                      [preset.label(0x22)], (x + 6, y - 12), False)
+                      [preset.label(0x22)], (x + 3, y - 13), False)
         x, y = _pt("c2")
         self._callout(d, RX0, RX1, 98, "C2",
-                      [preset.label(0x23)], (x + 12, y + 5), False)
+                      [preset.label(0x23)], (x + 11, y - 8), False)
         x, y = _pt("knob")
         self._callout(d, RX0, RX1, 152, "KNOB",
-                      rot(0x04, 0x37), (x + 47, y), False)
+                      rot(0x04, 0x37), (x + 44, y), False)
         x, y = _pt("short")
         self._callout(d, RX0, RX1, 232, "SHORT",
                       [preset.label(0x03)], (x + 16, y), False)
         x, y = _pt("tall")
         self._callout(d, RX0, RX1, 288, "TALL",
-                      [preset.label(0x00)], (x + 12, y + 20), False)
-        x, y = _pt("tour")
-        self._callout(d, RX0, RX1, 344, "TOUR",
-                      [preset.label(0x2A)], (x + 11, y), False)
+                      [preset.label(0x00)], (x + 20, y), False)
 
         # 하단 스트립: 십자키 (2x2 그리드 — 긴 설명 대비)
         d.line([0, 418, PANEL_W, 418], fill=0, width=1)
         dx, dy = _pt("dpad")
-        d.line([dx, dy + 42, dx, 418], fill=0, width=1)
+        d.line([dx, dy + 48, dx, 418], fill=0, width=1)
         d.text((12, 424), "십자키", font=self.f_name, fill=0)
         cell = (PANEL_W - 70) // 2
         for i, slot in enumerate((0x10, 0x11, 0x12, 0x13)):
