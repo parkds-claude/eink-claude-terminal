@@ -1,0 +1,3 @@
+Pretendard (https://github.com/orioncactus/pretendard)
+Copyright (c) 2021 Kil Hyung-jin. SIL Open Font License 1.1.
+X4 키맵 표시 한글 가독성용으로 동봉 (2026-08-12).

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -70,17 +71,28 @@ def _pt(key: str) -> tuple[int, int]:
 
 class KeymapRenderer:
     def __init__(self, font_path: str):
-        # e-ink 가독성: 값 텍스트는 크게 + stroke 1px 로 볼드 (2026-08-12 피드백)
-        self.f_head = ImageFont.truetype(font_path, 28)
-        self.f_name = ImageFont.truetype(font_path, 16)
-        self.f_val = ImageFont.truetype(font_path, 24)
-        self.f_val_s = ImageFont.truetype(font_path, 19)
-        self.f_small = ImageFont.truetype(font_path, 14)
+        # 한글 가독성: Pretendard 진짜 볼드 글리프 사용 (2026-08-12 피드백).
+        # Pretendard 부재 시 D2Coding + stroke 가짜 볼드로 폴백.
+        fdir = Path(font_path).parent
+        bold = fdir / "Pretendard-Bold.otf"
+        semi = fdir / "Pretendard-SemiBold.otf"
+        med = fdir / "Pretendard-Medium.otf"
+        self._true_bold = bold.exists()
+
+        def load(pref: Path, size: int):
+            return ImageFont.truetype(
+                str(pref) if pref.exists() else font_path, size)
+
+        self.f_head = load(bold, 30)
+        self.f_name = load(semi, 16)
+        self.f_val = load(bold, 25)
+        self.f_val_s = load(bold, 20)
+        self.f_small = load(med, 15)
 
     # ------------------------------------------------------------------ util
-    @staticmethod
-    def _bold(draw, xy, text, font):
-        draw.text(xy, text, font=font, fill=0, stroke_width=1, stroke_fill=0)
+    def _bold(self, draw, xy, text, font):
+        w = 0 if self._true_bold else 1
+        draw.text(xy, text, font=font, fill=0, stroke_width=w, stroke_fill=0)
 
     def _fit(self, draw: ImageDraw.ImageDraw, text: str, max_w: int):
         """폭에 맞는 (폰트, 텍스트) — 큰 폰트 → 작은 폰트 → 말줄임.
