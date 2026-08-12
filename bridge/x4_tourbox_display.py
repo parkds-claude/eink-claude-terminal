@@ -89,6 +89,8 @@ def main() -> int:
     battery: int | None = None
     page = 0                      # 0=메인, 1=콤보
     btn_base: tuple[int, ...] | None = None
+    last_reload_err: str | None = None
+    shown_pid: int | None = None  # 프리셋이 바뀌면 메인 페이지로 복귀
     print("x4 tourbox display: start", file=sys.stderr)
 
     while True:
@@ -114,12 +116,16 @@ def main() -> int:
                 try:
                     snap = store.load()
                     fp = new_fp
+                    last_reload_err = None
                     print("x4 tourbox display: config reloaded "
                           f"({len(snap.presets)} presets)", file=sys.stderr)
                 except Exception as error:  # Console 이 쓰는 중이면 다음 턴에 재시도
-                    print(f"x4 tourbox display: reload failed, retrying: {error}",
-                          file=sys.stderr)
-                    time.sleep(0.5)
+                    msg = str(error)
+                    if msg != last_reload_err:  # 같은 오류 반복 출력 방지
+                        last_reload_err = msg
+                        print(f"x4 tourbox display: reload failed, retrying: {msg}",
+                              file=sys.stderr)
+                    time.sleep(1.0)
                     continue
 
         # X4 물리버튼: 위/아래=페이지, 확인=전체 리프레시
@@ -145,6 +151,12 @@ def main() -> int:
                 preset = snap.presets.get(state.preset_id)
             if preset is None and not state.disabled:
                 preset = snap.preset_for_process(state.process)
+
+        # 프리셋(또는 없음 상태)이 바뀌면 콤보 페이지에서 메인으로 복귀
+        cur_pid = preset.pid if preset else None
+        if cur_pid != shown_pid:
+            shown_pid = cur_pid
+            page = 0
 
         key = (fp, state.preset_id, state.process, state.disabled, page, battery)
         if key == last_key and prev is not None:
