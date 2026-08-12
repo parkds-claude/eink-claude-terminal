@@ -20,14 +20,16 @@ from .store import CONSOLE_DIR
 
 _RE_SWITCH = re.compile(r"switchPreset =+> currentPresetId=(\d+)")
 _RE_PROCESS = re.compile(r"Now Process name is:(.*)")
+_RE_CHANGE = re.compile(r"Change process name=(.*)")
 _RE_DISABLE = re.compile(r"Not found match preset,disable Tourbox")
 
 
 @dataclass
 class ConsoleState:
     preset_id: int | None = None
-    process: str | None = None
-    disabled: bool = False       # 전면 앱에 매칭 프리셋 없음
+    process: str | None = None        # 전면 앱 표시 이름
+    match_process: str | None = None  # 매칭에 쓰인 이름 (__Others__ 가능)
+    disabled: bool = False            # 전면 앱에 매칭 프리셋 없음
 
 
 class ConsoleWatch:
@@ -56,14 +58,26 @@ class ConsoleWatch:
             fh.seek(0, os.SEEK_END)
 
     def _handle(self, line: str) -> None:
+        # 주의: 미매칭 앱 전환 시 Console 은 "disable Tourbox" 뒤에
+        # "switchPreset currentPresetId=N"(UI 탭 상태)을 또 남긴다.
+        # 따라서 switchPreset 은 disabled 를 해제하지 않는다 — 해제는
+        # "Change process name=실제앱" (매칭 성공) 시점에만 한다.
         m = _RE_SWITCH.search(line)
         if m:
             self.state.preset_id = int(m.group(1))
-            self.state.disabled = False
             return
         m = _RE_PROCESS.search(line)
         if m:
             self.state.process = m.group(1).strip()
+            return
+        m = _RE_CHANGE.search(line)
+        if m:
+            # 매칭 결과가 확정되는 지점 — disabled 는 여기서 리셋하고,
+            # 매칭 실패면 바로 다음 "disable Tourbox" 줄이 다시 True 로 만든다.
+            # (__Others__ 에 프리셋을 매핑해 두면 disable 줄이 안 나오므로
+            #  일반 프리셋이 그대로 표시된다.)
+            self.state.match_process = m.group(1).strip()
+            self.state.disabled = False
             return
         if _RE_DISABLE.search(line):
             self.state.disabled = True

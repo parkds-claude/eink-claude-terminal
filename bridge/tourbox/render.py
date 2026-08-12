@@ -42,15 +42,22 @@ def _pt(key: str) -> tuple[int, int]:
 
 class KeymapRenderer:
     def __init__(self, font_path: str):
-        self.f_head = ImageFont.truetype(font_path, 24)
-        self.f_name = ImageFont.truetype(font_path, 13)
-        self.f_val = ImageFont.truetype(font_path, 19)
-        self.f_val_s = ImageFont.truetype(font_path, 15)
-        self.f_small = ImageFont.truetype(font_path, 13)
+        # e-ink 가독성: 값 텍스트는 크게 + stroke 1px 로 볼드 (2026-08-12 피드백)
+        self.f_head = ImageFont.truetype(font_path, 27)
+        self.f_name = ImageFont.truetype(font_path, 15)
+        self.f_val = ImageFont.truetype(font_path, 22)
+        self.f_val_s = ImageFont.truetype(font_path, 18)
+        self.f_small = ImageFont.truetype(font_path, 14)
 
     # ------------------------------------------------------------------ util
+    @staticmethod
+    def _bold(draw, xy, text, font):
+        draw.text(xy, text, font=font, fill=0, stroke_width=1, stroke_fill=0)
+
     def _fit(self, draw: ImageDraw.ImageDraw, text: str, max_w: int):
-        """폭에 맞는 (폰트, 텍스트) — 큰 폰트 → 작은 폰트 → 말줄임."""
+        """폭에 맞는 (폰트, 텍스트) — 큰 폰트 → 작은 폰트 → 말줄임.
+        stroke 1px 여유로 2px 마진을 둔다."""
+        max_w -= 2
         for font in (self.f_val, self.f_val_s):
             if draw.textlength(text, font=font) <= max_w:
                 return font, text
@@ -66,13 +73,12 @@ class KeymapRenderer:
         max_w = x1 - x0
         draw.text((x1 - draw.textlength(name, font=self.f_name) if align_right
                    else x0, y), name, font=self.f_name, fill=0)
-        ty = y + 16
+        ty = y + 18
         for ln in lines[:2]:
             font, txt = self._fit(draw, ln, max_w)
             tw = draw.textlength(txt, font=font)
-            draw.text((x1 - tw if align_right else x0, ty), txt,
-                      font=font, fill=0)
-            ty += font.size + 3
+            self._bold(draw, (x1 - tw if align_right else x0, ty), txt, font)
+            ty += font.size + 4
         # 리더선: 콜아웃 모서리 → 컨트롤
         ly = y + 20
         lx = x1 + 3 if align_right else x0 - 3
@@ -139,7 +145,7 @@ class KeymapRenderer:
         d = ImageDraw.Draw(img)
 
         # 헤더
-        d.text((12, 8), preset.name, font=self.f_head, fill=0)
+        self._bold(d, (12, 6), preset.name, self.f_head)
         right = (process or "").strip()
         if page_hint:
             right = f"{right}   {page_hint}" if right else page_hint
@@ -207,10 +213,10 @@ class KeymapRenderer:
             label = preset.label(slot) or "–"
             col, row = i % 2, i // 2
             x0 = 70 + col * cell
-            y0 = 421 + row * 29
+            y0 = 420 + row * 30
             d.text((x0, y0 + 3), S[slot], font=self.f_val, fill=0)
-            font, txt = self._fit(d, label, cell - 40)
-            d.text((x0 + 28, y0 + 4), txt, font=font, fill=0)
+            font, txt = self._fit(d, label, cell - 44)
+            self._bold(d, (x0 + 30, y0 + 3), txt, font)
         return img
 
     # ----------------------------------------------------------- combo page
@@ -218,7 +224,7 @@ class KeymapRenderer:
                       page_hint: str = "") -> Image.Image:
         img = Image.new("L", (PANEL_W, PANEL_H), 255)
         d = ImageDraw.Draw(img)
-        d.text((12, 8), f"{preset.name} — 콤보·더블클릭", font=self.f_head, fill=0)
+        self._bold(d, (12, 6), f"{preset.name} — 콤보·더블클릭", self.f_head)
         if page_hint:
             d.text((PANEL_W - 12 - d.textlength(page_hint, font=self.f_small), 16),
                    page_hint, font=self.f_small, fill=0)
@@ -234,16 +240,16 @@ class KeymapRenderer:
             return img
 
         col_w = PANEL_W // 2
-        name_w = 128
-        row_h = 28
+        name_w = 132
+        row_h = 32
         per_col = (PANEL_H - 56) // row_h
         for i, (name, label) in enumerate(rows[:per_col * 2]):
             col, row = divmod(i, per_col)
             x0 = 12 + col * col_w
             y0 = 50 + row * row_h
-            d.text((x0, y0 + 4), name, font=self.f_name, fill=0)
+            d.text((x0, y0 + 6), name, font=self.f_name, fill=0)
             font, txt = self._fit(d, label, col_w - name_w - 26)
-            d.text((x0 + name_w, y0), txt, font=font, fill=0)
+            self._bold(d, (x0 + name_w, y0 + 2), txt, font)
         if len(rows) > per_col * 2:
             d.text((PANEL_W - 130, PANEL_H - 22),
                    f"+{len(rows) - per_col * 2}건 더", font=self.f_small, fill=0)
@@ -254,8 +260,8 @@ class KeymapRenderer:
         img = Image.new("L", (PANEL_W, PANEL_H), 255)
         d = ImageDraw.Draw(img)
         title = process or "알 수 없는 앱"
-        d.text(((PANEL_W - d.textlength(title, font=self.f_head)) / 2, 190),
-               title, font=self.f_head, fill=0)
+        self._bold(d, ((PANEL_W - d.textlength(title, font=self.f_head)) / 2, 185),
+                   title, self.f_head)
         msg = "TourBox 프리셋 없음"
         d.text(((PANEL_W - d.textlength(msg, font=self.f_val)) / 2, 240),
                msg, font=self.f_val, fill=0)
