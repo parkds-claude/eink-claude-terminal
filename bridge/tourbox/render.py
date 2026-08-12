@@ -15,8 +15,8 @@ from .store import Preset
 
 PANEL_W, PANEL_H = 800, 480
 
-# 기기 스키매틱 영역
-DEV_X0, DEV_Y0, DEV_X1, DEV_Y1 = 250, 72, 560, 400
+# 기기 스키매틱 영역 (하단 십자키 스트립 제거 후 전체 높이 사용, 2026-08-12)
+DEV_X0, DEV_Y0, DEV_X1, DEV_Y1 = 250, 70, 560, 464
 DEV_W, DEV_H = DEV_X1 - DEV_X0, DEV_Y1 - DEV_Y0
 
 # 컨트롤 위치 (기기 영역 내 비율 — TourBox 공식 일러스트 비례)
@@ -71,10 +71,10 @@ def _pt(key: str) -> tuple[int, int]:
 class KeymapRenderer:
     def __init__(self, font_path: str):
         # e-ink 가독성: 값 텍스트는 크게 + stroke 1px 로 볼드 (2026-08-12 피드백)
-        self.f_head = ImageFont.truetype(font_path, 27)
-        self.f_name = ImageFont.truetype(font_path, 15)
-        self.f_val = ImageFont.truetype(font_path, 22)
-        self.f_val_s = ImageFont.truetype(font_path, 18)
+        self.f_head = ImageFont.truetype(font_path, 28)
+        self.f_name = ImageFont.truetype(font_path, 16)
+        self.f_val = ImageFont.truetype(font_path, 24)
+        self.f_val_s = ImageFont.truetype(font_path, 19)
         self.f_small = ImageFont.truetype(font_path, 14)
 
     # ------------------------------------------------------------------ util
@@ -123,24 +123,24 @@ class KeymapRenderer:
 
         # side: 왼쪽 엣지 밖으로 돌출한 탭
         x, y = _pt("side")
-        draw.rounded_rectangle([x - 5, y - 26, x + 6, y + 26],
+        draw.rounded_rectangle([x - 5, y - 30, x + 6, y + 30],
                                radius=4, outline=0, width=2)
 
         # scroll: 달걀형 하우징 + 내부 휠 + 리지 3개
         x, y = _pt("scroll")
-        draw.ellipse([x - 31, y - 54, x + 31, y + 54], outline=0, width=2)
-        draw.rounded_rectangle([x - 16, y - 38, x + 16, y + 38],
-                               radius=15, outline=0, width=2)
-        for dy in (-16, 0, 16):
-            draw.rounded_rectangle([x - 8, y + dy - 3, x + 8, y + dy + 3],
+        draw.ellipse([x - 34, y - 62, x + 34, y + 62], outline=0, width=2)
+        draw.rounded_rectangle([x - 18, y - 44, x + 18, y + 44],
+                               radius=17, outline=0, width=2)
+        for dy in (-18, 0, 18):
+            draw.rounded_rectangle([x - 9, y + dy - 3, x + 9, y + dy + 3],
                                    radius=3, outline=0, width=1)
 
         # top: 가로 필 (이중 라인)
         x, y = _pt("top")
-        draw.rounded_rectangle([x - 48, y - 16, x + 48, y + 16],
-                               radius=15, outline=0, width=2)
-        draw.rounded_rectangle([x - 42, y - 10, x + 42, y + 10],
-                               radius=10, outline=0, width=1)
+        draw.rounded_rectangle([x - 52, y - 18, x + 52, y + 18],
+                               radius=17, outline=0, width=2)
+        draw.rounded_rectangle([x - 45, y - 11, x + 45, y + 11],
+                               radius=11, outline=0, width=1)
 
         # 로고
         lx, ly = DEV_X0 + int(0.70 * DEV_W), DEV_Y0 + int(0.11 * DEV_H)
@@ -150,13 +150,13 @@ class KeymapRenderer:
         # c1/c2: 원
         for key, lab in (("c1", "C1"), ("c2", "C2")):
             x, y = _pt(key)
-            draw.ellipse([x - 14, y - 14, x + 14, y + 14], outline=0, width=2)
+            draw.ellipse([x - 15, y - 15, x + 15, y + 15], outline=0, width=2)
             draw.text((x - draw.textlength(lab, font=self.f_small) / 2, y - 8),
                       lab, font=self.f_small, fill=0)
 
         # knob: 스캘럽 엣지 + 골마다 방사선
         x, y = _pt("knob")
-        R = 42
+        R = 48
         knob_pts = []
         for i in range(144):
             th = i * 2 * math.pi / 144
@@ -171,11 +171,11 @@ class KeymapRenderer:
 
         # tour: 노브 좌하단의 작은 콩 모양
         x, y = _pt("tour")
-        draw.ellipse([x - 13, y - 11, x + 13, y + 11], outline=0, width=2)
+        draw.ellipse([x - 15, y - 12, x + 15, y + 12], outline=0, width=2)
 
         # dial: 방사 스포크 원판
         x, y = _pt("dial")
-        R = 50
+        R = 57
         draw.ellipse([x - R, y - R, x + R, y + R], outline=0, width=2)
         for i in range(18):
             th = i * math.pi / 9
@@ -186,7 +186,7 @@ class KeymapRenderer:
 
         # dpad: 분리형 키 4개 + 중앙 다이아몬드
         x, y = _pt("dpad")
-        o, kl, ks = 29, 15, 12   # 키 중심 오프셋, 키 반변(긴/짧은)
+        o, kl, ks = 33, 17, 13   # 키 중심 오프셋, 키 반변(긴/짧은)
         for dx, dy, vert in ((0, -o, True), (0, o, True),
                              (-o, 0, False), (o, 0, False)):
             hw, hh = (ks, kl) if vert else (kl, ks)
@@ -198,19 +198,19 @@ class KeymapRenderer:
 
         # tall: 세로 필 + 리지 3줄 / short: 돔
         x, y = _pt("tall")
-        draw.rounded_rectangle([x - 19, y - 36, x + 19, y + 36],
-                               radius=18, outline=0, width=2)
-        for dy in (-11, 0, 11):
-            draw.line([x - 8, y + dy, x + 8, y + dy], fill=0, width=1)
+        draw.rounded_rectangle([x - 21, y - 42, x + 21, y + 42],
+                               radius=20, outline=0, width=2)
+        for dy in (-13, 0, 13):
+            draw.line([x - 9, y + dy, x + 9, y + dy], fill=0, width=1)
         x, y = _pt("short")
         try:
-            draw.rounded_rectangle([x - 15, y - 28, x + 15, y + 28], radius=14,
+            draw.rounded_rectangle([x - 17, y - 32, x + 17, y + 32], radius=16,
                                    corners=(True, True, False, False),
                                    outline=0, width=2)
-            draw.line([x - 15, y + 28, x + 15, y + 28], fill=0, width=2)
+            draw.line([x - 17, y + 32, x + 17, y + 32], fill=0, width=2)
         except TypeError:  # Pillow < 9.1
-            draw.rounded_rectangle([x - 15, y - 28, x + 15, y + 28],
-                                   radius=14, outline=0, width=2)
+            draw.rounded_rectangle([x - 17, y - 32, x + 17, y + 32],
+                                   radius=16, outline=0, width=2)
 
     # ------------------------------------------------------------ main page
     def render_main(self, preset: Preset, process: str | None,
