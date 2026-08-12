@@ -161,6 +161,15 @@ class WatchTests(unittest.TestCase):
         log.write_text(                                   # truncate 내성
             "x - switchPreset =========> currentPresetId=2, tabId=2\n")
         self.assertEqual(w.poll().preset_id, 2)
+        # 수동 프리셋 선택(자동 전환 꺼짐): tableid 갱신만으로 전환 + disabled 해제
+        with log.open("a") as f:
+            f.write("x - Not found match preset,disable Tourbox\n")
+        self.assertTrue(w.poll().disabled)
+        import os
+        (tmp / "tableid").write_text("3")
+        os.utime(tmp / "tableid", ns=(1, 1))              # mtime 강제 변경
+        s = w.poll()
+        self.assertEqual((s.preset_id, s.disabled), (3, False))
 
 
 @unittest.skipUnless(CONSOLE_DIR.exists(), "TourBox Console 미설치")

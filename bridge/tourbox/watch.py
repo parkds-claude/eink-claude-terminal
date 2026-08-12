@@ -35,15 +35,29 @@ class ConsoleState:
 class ConsoleWatch:
     def __init__(self, base: Path = CONSOLE_DIR):
         self.log_path = Path(base) / "tourbox.log"
+        self.tableid_path = Path(base) / "tableid"
         self.state = ConsoleState()
         self._fh = None
         self._ino = None
         self._pending = b""
-        try:
-            self.state.preset_id = int((Path(base) / "tableid").read_text().strip())
-        except (OSError, ValueError):
-            pass
+        self._tableid_mtime = self._read_tableid(initial=True)
         self._open(seek_end=True)
+
+    def _read_tableid(self, initial: bool = False) -> int | None:
+        """tableid 파일 → preset_id. mtime 을 돌려준다 (없으면 None).
+
+        tableid 는 수동 프리셋 선택·Console 종료 시에만 갱신된다 (자동 전환은
+        로그로만 흐름). 따라서 mtime 변경 = 수동 선택으로 보고 disabled 를
+        해제한다. 자동 전환 꺼짐 상태에서 유일한 전환 신호다 (2026-08-12).
+        """
+        try:
+            st = self.tableid_path.stat()
+            self.state.preset_id = int(self.tableid_path.read_text().strip())
+            if not initial:
+                self.state.disabled = False
+            return st.st_mtime_ns
+        except (OSError, ValueError):
+            return None
 
     def _open(self, seek_end: bool) -> None:
         self._pending = b""
@@ -84,6 +98,13 @@ class ConsoleWatch:
 
     def poll(self) -> ConsoleState:
         """새 로그 바이트를 소화하고 최신 상태를 돌려준다."""
+        # 수동 프리셋 선택 감지 (tableid mtime)
+        try:
+            mt = self.tableid_path.stat().st_mtime_ns
+            if mt != self._tableid_mtime:
+                self._tableid_mtime = self._read_tableid()
+        except OSError:
+            pass
         if self._fh is None:
             self._open(seek_end=False)
             if self._fh is None:
