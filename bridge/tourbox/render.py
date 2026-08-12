@@ -15,8 +15,8 @@ from .store import Preset
 
 PANEL_W, PANEL_H = 800, 480
 
-# 기기 스키매틱 영역 (하단 십자키 스트립 제거 후 전체 높이 사용, 2026-08-12)
-DEV_X0, DEV_Y0, DEV_X1, DEV_Y1 = 250, 70, 560, 464
+# 기기 스키매틱 영역 — 실물 비례(가로>세로)에 맞춘 와이드 배치 (2026-08-12)
+DEV_X0, DEV_Y0, DEV_X1, DEV_Y1 = 210, 78, 590, 446
 DEV_W, DEV_H = DEV_X1 - DEV_X0, DEV_Y1 - DEV_Y0
 
 # 컨트롤 위치 (기기 영역 내 비율 — TourBox 공식 일러스트 비례)
@@ -137,9 +137,9 @@ class KeymapRenderer:
 
         # top: 가로 필 (이중 라인)
         x, y = _pt("top")
-        draw.rounded_rectangle([x - 52, y - 18, x + 52, y + 18],
+        draw.rounded_rectangle([x - 58, y - 18, x + 58, y + 18],
                                radius=17, outline=0, width=2)
-        draw.rounded_rectangle([x - 45, y - 11, x + 45, y + 11],
+        draw.rounded_rectangle([x - 51, y - 11, x + 51, y + 11],
                                radius=11, outline=0, width=1)
 
         # 로고
@@ -156,7 +156,7 @@ class KeymapRenderer:
 
         # knob: 스캘럽 엣지 + 골마다 방사선
         x, y = _pt("knob")
-        R = 48
+        R = 50
         knob_pts = []
         for i in range(144):
             th = i * 2 * math.pi / 144
@@ -175,7 +175,7 @@ class KeymapRenderer:
 
         # dial: 방사 스포크 원판
         x, y = _pt("dial")
-        R = 54
+        R = 58
         draw.ellipse([x - R, y - R, x + R, y + R], outline=0, width=2)
         for i in range(18):
             th = i * math.pi / 9
@@ -186,7 +186,7 @@ class KeymapRenderer:
 
         # dpad: 분리형 키 4개 + 중앙 다이아몬드
         x, y = _pt("dpad")
-        o, kl, ks = 30, 16, 13   # 키 중심 오프셋, 키 반변(긴/짧은)
+        o, kl, ks = 32, 17, 13   # 키 중심 오프셋, 키 반변(긴/짧은)
         for dx, dy, vert in ((0, -o, True), (0, o, True),
                              (-o, 0, False), (o, 0, False)):
             hw, hh = (ks, kl) if vert else (kl, ks)
@@ -240,8 +240,8 @@ class KeymapRenderer:
                 lines.append(f"누름 {p}")
             return lines
 
-        LX0, LX1 = 10, 240   # 좌측 콜아웃 열
-        RX0, RX1 = 572, 790  # 우측 콜아웃 열
+        LX0, LX1 = 8, 202    # 좌측 콜아웃 열
+        RX0, RX1 = 598, 792  # 우측 콜아웃 열
 
         # 좌측: TOP, SIDE, SCROLL, TOUR, DIAL (물리 위치 순)
         tx, ty = _pt("top")
@@ -257,8 +257,8 @@ class KeymapRenderer:
         self._callout(d, LX0, LX1, 292, "TOUR",
                       [preset.label(0x2A)], (x - 13, y - 8), True)
         x, y = _pt("dial")
-        self._callout(d, LX0, LX1, 360, "DIAL",
-                      rot(0x0F, 0x38), (x - 55, y), True)
+        self._callout(d, LX0, LX1, 358, "DIAL",
+                      rot(0x0F, 0x38), (x - 59, y), True)
 
         # 우측: C1, C2, KNOB, TALL, SHORT (물리 위치 순)
         x, y = _pt("c1")
@@ -269,12 +269,12 @@ class KeymapRenderer:
                       [preset.label(0x23)], (x + 12, y - 9), False)
         x, y = _pt("knob")
         self._callout(d, RX0, RX1, 190, "KNOB",
-                      rot(0x04, 0x37), (x + 50, y), False)
+                      rot(0x04, 0x37), (x + 52, y), False)
         x, y = _pt("tall")
-        self._callout(d, RX0, RX1, 300, "TALL",
+        self._callout(d, RX0, RX1, 296, "TALL",
                       [preset.label(0x00)], (x + 22, y), False)
         x, y = _pt("short")
-        self._callout(d, RX0, RX1, 366, "SHORT",
+        self._callout(d, RX0, RX1, 360, "SHORT",
                       [preset.label(0x03)], (x + 18, y), False)
         return img
 
