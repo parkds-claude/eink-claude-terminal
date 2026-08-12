@@ -28,10 +28,10 @@ POS = {
     "knob":   (0.50, 0.45),
     "tour":   (0.37, 0.58),
     "side":   (0.03, 0.28),
-    "dial":   (0.24, 0.74),
-    "dpad":   (0.56, 0.75),
+    "dial":   (0.22, 0.74),
+    "dpad":   (0.55, 0.75),
     "tall":   (0.77, 0.70),
-    "short":  (0.89, 0.75),
+    "short":  (0.90, 0.75),
 }
 
 # 유기적 외곽선 앵커 (기기 영역 비율 — 은은한 물결의 둥근 사각 실루엣)
@@ -175,7 +175,7 @@ class KeymapRenderer:
 
         # dial: 방사 스포크 원판
         x, y = _pt("dial")
-        R = 57
+        R = 54
         draw.ellipse([x - R, y - R, x + R, y + R], outline=0, width=2)
         for i in range(18):
             th = i * math.pi / 9
@@ -186,7 +186,7 @@ class KeymapRenderer:
 
         # dpad: 분리형 키 4개 + 중앙 다이아몬드
         x, y = _pt("dpad")
-        o, kl, ks = 33, 17, 13   # 키 중심 오프셋, 키 반변(긴/짧은)
+        o, kl, ks = 30, 16, 13   # 키 중심 오프셋, 키 반변(긴/짧은)
         for dx, dy, vert in ((0, -o, True), (0, o, True),
                              (-o, 0, False), (o, 0, False)):
             hw, hh = (ks, kl) if vert else (kl, ks)
@@ -204,13 +204,13 @@ class KeymapRenderer:
             draw.line([x - 9, y + dy, x + 9, y + dy], fill=0, width=1)
         x, y = _pt("short")
         try:
-            draw.rounded_rectangle([x - 17, y - 32, x + 17, y + 32], radius=16,
+            draw.rounded_rectangle([x - 16, y - 32, x + 16, y + 32], radius=15,
                                    corners=(True, True, False, False),
                                    outline=0, width=2)
-            draw.line([x - 17, y + 32, x + 17, y + 32], fill=0, width=2)
+            draw.line([x - 16, y + 32, x + 16, y + 32], fill=0, width=2)
         except TypeError:  # Pillow < 9.1
-            draw.rounded_rectangle([x - 17, y - 32, x + 17, y + 32],
-                                   radius=16, outline=0, width=2)
+            draw.rounded_rectangle([x - 16, y - 32, x + 16, y + 32],
+                                   radius=15, outline=0, width=2)
 
     # ------------------------------------------------------------ main page
     def render_main(self, preset: Preset, process: str | None,
@@ -243,54 +243,39 @@ class KeymapRenderer:
         LX0, LX1 = 10, 240   # 좌측 콜아웃 열
         RX0, RX1 = 572, 790  # 우측 콜아웃 열
 
-        # 좌측: TOP, SCROLL, SIDE, TOUR, DIAL
+        # 좌측: TOP, SIDE, SCROLL, TOUR, DIAL (물리 위치 순)
         tx, ty = _pt("top")
-        self._callout(d, LX0, LX1, 48, "TOP",
-                      [preset.label(0x02)], (tx - 48, ty), True)
-        sx, sy = _pt("scroll")
-        self._callout(d, LX0, LX1, 118, "SCROLL",
-                      rot(0x09, 0x0A), (sx - 31, sy), True)
+        self._callout(d, LX0, LX1, 60, "TOP",
+                      [preset.label(0x02)], (tx - 52, ty), True)
         x, y = _pt("side")
-        self._callout(d, LX0, LX1, 188, "SIDE",
+        self._callout(d, LX0, LX1, 122, "SIDE",
                       [preset.label(0x01)], (x - 6, y), True)
+        sx, sy = _pt("scroll")
+        self._callout(d, LX0, LX1, 186, "SCROLL",
+                      rot(0x09, 0x0A), (sx - 34, sy), True)
         x, y = _pt("tour")
-        self._callout(d, LX0, LX1, 244, "TOUR",
-                      [preset.label(0x2A)], (x - 11, y - 7), True)
+        self._callout(d, LX0, LX1, 292, "TOUR",
+                      [preset.label(0x2A)], (x - 13, y - 8), True)
         x, y = _pt("dial")
-        self._callout(d, LX0, LX1, 312, "DIAL",
-                      rot(0x0F, 0x38), (x - 53, y), True)
+        self._callout(d, LX0, LX1, 360, "DIAL",
+                      rot(0x0F, 0x38), (x - 55, y), True)
 
-        # 우측: C1, C2, KNOB, SHORT, TALL
+        # 우측: C1, C2, KNOB, TALL, SHORT (물리 위치 순)
         x, y = _pt("c1")
-        self._callout(d, RX0, RX1, 48, "C1",
-                      [preset.label(0x22)], (x + 3, y - 13), False)
+        self._callout(d, RX0, RX1, 60, "C1",
+                      [preset.label(0x22)], (x + 3, y - 14), False)
         x, y = _pt("c2")
-        self._callout(d, RX0, RX1, 98, "C2",
-                      [preset.label(0x23)], (x + 11, y - 8), False)
+        self._callout(d, RX0, RX1, 120, "C2",
+                      [preset.label(0x23)], (x + 12, y - 9), False)
         x, y = _pt("knob")
-        self._callout(d, RX0, RX1, 152, "KNOB",
-                      rot(0x04, 0x37), (x + 44, y), False)
-        x, y = _pt("short")
-        self._callout(d, RX0, RX1, 232, "SHORT",
-                      [preset.label(0x03)], (x + 16, y), False)
+        self._callout(d, RX0, RX1, 190, "KNOB",
+                      rot(0x04, 0x37), (x + 50, y), False)
         x, y = _pt("tall")
-        self._callout(d, RX0, RX1, 288, "TALL",
-                      [preset.label(0x00)], (x + 20, y), False)
-
-        # 하단 스트립: 십자키 (2x2 그리드 — 긴 설명 대비)
-        d.line([0, 418, PANEL_W, 418], fill=0, width=1)
-        dx, dy = _pt("dpad")
-        d.line([dx, dy + 48, dx, 418], fill=0, width=1)
-        d.text((12, 424), "십자키", font=self.f_name, fill=0)
-        cell = (PANEL_W - 70) // 2
-        for i, slot in enumerate((0x10, 0x11, 0x12, 0x13)):
-            label = preset.label(slot) or "–"
-            col, row = i % 2, i // 2
-            x0 = 70 + col * cell
-            y0 = 420 + row * 30
-            d.text((x0, y0 + 3), S[slot], font=self.f_val, fill=0)
-            font, txt = self._fit(d, label, cell - 44)
-            self._bold(d, (x0 + 30, y0 + 3), txt, font)
+        self._callout(d, RX0, RX1, 300, "TALL",
+                      [preset.label(0x00)], (x + 22, y), False)
+        x, y = _pt("short")
+        self._callout(d, RX0, RX1, 366, "SHORT",
+                      [preset.label(0x03)], (x + 18, y), False)
         return img
 
     # ----------------------------------------------------------- combo page
