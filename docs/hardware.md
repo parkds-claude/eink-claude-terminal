@@ -12,8 +12,8 @@
 | 입력 | 물리 버튼 5개 (Up/Down/OK/Left/Right + Power) |
 | 개발환경 | PlatformIO `esp32-c3-devkitm-1`, Arduino framework, 16MB dio |
 | 플래시 | **BOOT 홀드 + USB 연결**해야 시리얼 등장 (평시 USB-C는 충전 전용). `esptool write-flash 0x0` 또는 웹 플래셔 |
-| 식별 | MAC `14:63:93:f3:b8:88`, 포트 `/dev/cu.usbmodem2101` |
-| 현재 펌웨어 | SUMI v0.6.4 + 자체 두벌식 한글 오토마타 (정품 백업 `~/xteink-ebook/backups/` 보유) |
+| 식별 | MAC `14:63:93:f3:b8:88`, 포트는 꽂는 허브 포트에 따라 달라짐 (`/dev/cu.usbmodem2101`, 2026-10-02 에는 `usbmodem1401`) — `esptool flash-id` 로 MAC 확인 후 작업 |
+| 현재 펌웨어 | SUMI v0.6.4 + 자체 두벌식 한글 오토마타 (2026-10-02 원복, 이미지 `~/xteink-ebook/backups/sumi-korean-v3-REDUMP-2026-07-30-full.bin`). 정품 백업 bin 은 구 기기에만 있고 이 맥미니에는 sha256 만 있음 |
 | 파일 적재 | microSD 직결 / WiFi(crosspoint.local) / Calibre — USB로는 불가 |
 
 **핵심 자산**: `~/xteink-ebook`에 BLE 키보드 HID 리포트 파싱 성공 코드(06-25~26, 7바이트 리포트 i=1 파싱 수정, 한글 조합 실기 확인). Phase 2~3에서 이식.
